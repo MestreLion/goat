@@ -45,7 +45,7 @@ log = logging.getLogger(__name__)
 VERSION = "0.1"
 APPNAME = 'goat'
 BOARD_SIZE = 19
-GAMES = 3000
+GAMES = 10000
 
 # Paths
 APPDIR    = os.path.abspath(os.path.dirname(__file__) or '.')
@@ -170,7 +170,8 @@ def main(args=None):
     #pygame.display.init()
     #pygame.font.init()
 
-    hooks = [StonesPerSquare(BOARD_SIZE),]
+    hooks = [StonesPerSquare(BOARD_SIZE),
+             LibertiesPerMove(BOARD_SIZE)]
 
     games = 0
     i = 0
@@ -187,6 +188,7 @@ def main(args=None):
         i += 1
         if not i % 10 == 0:
             continue
+        chart = games % 10 == 0
 
         board, plays = sgf_moves.get_setup_and_moves(game)
 
@@ -195,7 +197,7 @@ def main(args=None):
             continue
 
         for hook in hooks:
-            hook.gamestart(game, board)
+            hook.gamestart(game, board, chart=chart)
 
         for colour, move in plays:
             if move is not None:
@@ -205,12 +207,12 @@ def main(args=None):
                 hook.move(game, board, move)
 
         for hook in hooks:
-            chart = games % 10 == 0
             hook.gameover(game, board, chart=chart)
             if chart:
                 print ascii_boards.render_board(board)
 
         games += 1
+        log.debug("Games processed: %d", games)
         if games == GAMES:
             break
 
@@ -221,16 +223,6 @@ def main(args=None):
 
     pygame.quit()
     save_options()
-
-
-class LibertiesPerMove(object):
-    def __init__(self):
-        self.black = []
-        self.white = []
-
-
-def count_liberties(board, game):
-    pass
 
 
 class StoneCountCenterPoint(object):
@@ -282,7 +274,7 @@ def launchfile(filename):
 class Hook(object):
     def __init__(self, size):
         pass
-    def gamestart(self, game, board):
+    def gamestart(self, game, board, chart=False):
         pass
     def move(self, game, board, move):
         pass
@@ -309,7 +301,7 @@ class Chart(object):
     def save(self, name):
         path = os.path.join(CACHEDIR, "%s.png" % name)
         self.fig.savefig(path, dpi=300)
-        launchfile(path)
+        #launchfile(path)
 
     def close(self):
         plt.close(self.fig)
@@ -421,6 +413,83 @@ class StonesPerSquare(Hook):
                   title="Stones per increasing areas - Average of %d games" % games)
         chart.save("stones_average_%d" % games)
 
+
+class LibertiesPerMove(Hook):
+    def __init__(self, size):
+        self.size = size
+        self.totalliberties = []
+        self.maxmoves = 0
+        self.points = []
+        limits = (0, self.size - 1)
+
+        for i in xrange(self.size):
+            for j in xrange(self.size):
+                neighs = []
+                for neigh in [(i, j-1),
+                              (i, j+1),
+                              (i-1, j),
+                              (i+1, j)]:
+                    if (limits[0] <= neigh[0] <= limits[1] and
+                        limits[0] <= neigh[1] <= limits[1]):
+                        neighs.append(neigh)
+                self.points.append(((i, j), neighs))
+
+    def gamestart(self, game, board, chart):
+        self.gameliberties = []
+
+    def move(self, game, board, move):
+        liberties = 0
+        for point, neighs in self.points:
+            if board.get(*point) is not None:
+                for neigh in neighs:
+                    if board.get(*neigh) is None:
+                        liberties += 1
+        self.gameliberties.append(liberties)
+
+    def gameover(self, game, board, chart=False):
+        self.totalliberties.append(self.gameliberties)
+        moves = len(self.gameliberties)
+        if moves > self.maxmoves:
+            self.maxmoves = moves
+
+        if chart:
+            chart = Chart()
+            chart.plot(self.gameliberties, label="Liberties", color="red")
+            chart.set(loc=2, xlabel="Moves", ylabel="Liberties", title="Liberties per move - Game %s" % game.name)  # loc=2: legend on upper left
+            chart.save("liberties_%s" % game.name)
+            chart.close()
+
+    def end(self):
+        libavg = []
+        libmin = []
+        libmax = []
+        for n in xrange(self.maxmoves):
+            sum = 0
+            games = 0
+            min = BOARD_SIZE**2 + 1
+            max = -1
+            for game in self.totalliberties:
+                if len(game) > n:
+                    games += 1
+                    v = game[n]
+                    sum += v
+                    if v < min: min = v
+                    if v > max: max = v
+
+            libavg.append(float(sum / games))
+            libmin.append(min)
+            libmax.append(max)
+
+        chart = Chart()
+        chart.plot(libavg, label="Avgerage", color="red")
+        chart.plot(libmin, label="Minimum",  color="red", ls=':')
+        chart.plot(libmax, label="Maximum",  color="red", ls='--')
+
+        games = len(self.totalliberties)
+        chart.set(loc=2, xlabel="Moves", ylabel="Liberties",
+                  title="Liberties per move - Average of %d games" % games)  # loc=2: legend on upper left
+        chart.save("liberties_average_%d" % games)
+        chart.close()
 
 
 
