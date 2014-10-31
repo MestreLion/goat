@@ -1,0 +1,15 @@
+#!/bin/bash
+
+gamedir="$HOME"/.cache/goat
+
+echo "# Headers"
+grep -Proh '[A-Z][A-Z]?\[' "$gamedir" | topuniq
+
+headers=(GM FF CA SZ RU KM '[WB]R' HA ST AP ID OH PC EV RO SO RE)
+
+for header in "${headers[@]}"; do
+	extra=
+	echo
+	echo "# $header"
+	grep -Proh "$header\[.*?\]" "$gamedir" | topuniq "$@"
+done

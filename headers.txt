@@ -1,0 +1,127 @@
+# Headers
+http://www.red-bean.com/sgf/
+http://www.red-bean.com/sgf/properties.html
+http://www.red-bean.com/sgf/go.html
+http://www.red-bean.com/sgf/proplist.html
+
+# KGS
+12737547 100.0% Total (30)
+ 5882507  46.2% 5882507 B[
+ 5879109  46.2% 5879109 W[
+   59216   0.5% GM[
+   59216   0.5% FF[
+   59216   0.5% CA[
+   59216   0.5% DT[
+   59216   0.5% SZ[
+   59216   0.5% RU[
+   59216   0.5% PW[
+   59216   0.5% PC[
+   59216   0.5% PB[
+   59216   0.5% KM[
+   58863   0.5% TM[
+   58810   0.5% WR[
+   58671   0.5% RE[
+   57647   0.5% OT[
+   57341   0.5% BR[
+   23518   0.2% HA[
+   23516   0.2% AB[
+   22663   0.2% ST[
+   22663   0.2% AP[
+      36   0.0% RO[
+      36   0.0% EV[
+
+# Badukmovies
+ 584981 100.0% Total (48)
+  48576   8.3% DT[
+  48574   8.3% RE[
+  48573   8.3% BR[
+  48572   8.3% WR[
+  48572   8.3% PW[
+  48572   8.3% PB[
+  48504   8.3% FF[
+  48397   8.3% SZ[
+  47554   8.1% KM[
+  45945   7.9% EV[
+  33922   5.8% CA[
+  24548   4.2% RO[
+  16904   2.9% RU[
+  14050   2.4% PC[
+   4370   0.7% GM[
+   2885   0.5% AP[
+   1509   0.3% BT[
+   1500   0.3% WT[
+   1354   0.2% TM[
+    812   0.1% HA[
+    810   0.1% AB[
+    182   0.0% SO[
+    117   0.0% US[
+     43   0.0% OH[
+     39   0.0% GC[
+     17   0.0% AW[
+     12   0.0% WL[
+     12   0.0% BL[
+     11   0.0% ID[
+     11   0.0% GK[
+     10   0.0% LB[
+      3   0.0% GN[
+      2   0.0% TW[
+      2   0.0% TC[
+      2   0.0% TB[
+      2   0.0% LT[
+      2   0.0% LC[
+      1   0.0% WC[
+      1   0.0% ST[
+      1   0.0% ER[
+      1   0.0% BC[
+
+# Pro
+ 658296 100.0% Total (25)
+  69588  10.6% PW[
+  69588  10.6% PB[
+  68750  10.4% WR[
+  68648  10.4% RE[
+  68568  10.4% BR[
+  65965  10.0% KM[
+  64592   9.8% DT[
+  64411   9.8% EV[
+  34493   5.2% FF[
+  31261   4.7% CA[
+  16988   2.6% RO[
+  14420   2.2% RU[
+  14196   2.2% PC[
+   2431   0.4% AB[
+   1984   0.3% HA[
+   1744   0.3% TM[
+    661   0.1% AW[
+      1   0.0% SO[
+
+
+# B/W:   Black/White move
+# PB/PW: Black/White Player name
+# BT/WT: Black/White Team name
+# BR/WR: Black/White player Rank (p = Professional Dan, but some 'd' may also be pros)
+# AB/AW: Add Black/White stones (initial handicap layout)
+# BL/WL: Time left for Black/White after move
+# DT: Game Date
+# TM: Time Limit (per move)
+# OT: OverTime rule
+# SO: Source (e.g. book, journal, ...)
+# US: User who created the game record
+# GC: Game "context" (background info description on game)
+
+# OH: ???
+# ID: ???
+
+# GM: Game (1 = Go)
+# FF: File Format (4 = latest)
+# CA: Character encoding (UTF-8 = Unicode)
+# SZ: Board Size
+# RU: Game Rules (AGA = American Go Association, therefore American rules)
+# PC: Place where game occurred (city, server, etc)
+# KM: Komi
+# HA: Handicap (initial stones, usually for Black)
+# ST: Style (how to deal with variations), 2 = show variations of successor node (children), no (auto-) board markup
+# AP: Application (software used to generate the SGF file)
+# EV: Event where game took place, if any (usually a tournament)
+# RO: Round, usually for tournaments (1st, 2nd, final, semifinal, etc)
+# RE: Result
