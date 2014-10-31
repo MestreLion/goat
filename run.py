@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 #
-# pylitaire - Solitaire in Python
+# goat - Go Analysis Tool
 #
 #    Copyright (C) 2014 Rodrigo Silva (MestreLion) <linux@rodrigosilva.com>
 #
@@ -18,14 +18,14 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program. See <http://www.gnu.org/licenses/gpl.html>
 #
-# Game launcher
+# Launcher
 
 import sys
 
-import go.main
+import goat.main
 
 if __name__ == "__main__":
     try:
-        sys.exit(go.main.main())
+        sys.exit(goat.main.main(sys.argv[:1]))
     except KeyboardInterrupt:
         pass

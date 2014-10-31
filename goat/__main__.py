@@ -20,6 +20,6 @@
 from . import main
 
 try:
-    main.main()
+    main.main(argv=None)
 except KeyboardInterrupt:
     pass

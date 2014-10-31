@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
 #    Copyright (C) 2014 Rodrigo Silva (MestreLion) <linux@rodrigosilva.com>
@@ -26,6 +25,7 @@ import json
 import zipfile
 import tarfile
 import subprocess
+import pprint
 
 import matplotlib.pyplot as plt  # Debian: python-matplotlib
 import progressbar  # Debian: python-progressbar
@@ -38,14 +38,13 @@ from gomill import sgf_moves
 from gomill import boards
 
 
-
 log = logging.getLogger(__name__)
 
 # General
 VERSION = "0.1"
 APPNAME = 'goat'
 BOARD_SIZE = 19
-GAMES = 10000
+GAMES = 0
 
 # Paths
 APPDIR    = os.path.abspath(os.path.dirname(__file__) or '.')
@@ -115,6 +114,15 @@ def save_options():
         log.warn("Could not write window size: %s", e)
 
 
+def launchfile(filename):
+    if sys.platform.startswith('darwin'):
+        subprocess.call(('open', filename))
+    elif os.name == 'nt':  # works for sys.platform 'win32' and 'cygwin'
+        os.system("start %s" % filename)  # could be os.startfile() too
+    else:  # Assume POSIX (Linux, BSD, etc)
+        subprocess.call(('xdg-open', filename))
+
+
 def find_games(paths):
 
     def extract(filepath):
@@ -154,7 +162,7 @@ def find_games(paths):
                         log.warn("Error extracting %s: %s", filepath, e)
 
 
-def main(args=None):
+def main(argv=None):
     '''App entry point
         <args> is a list of command line arguments, defaults to sys.argv[1:]
     '''
@@ -166,7 +174,7 @@ def main(args=None):
     )
 
     safemakedirs(CACHEDIR)
-    load_options(args)
+    load_options(argv)
     #pygame.display.init()
     #pygame.font.init()
 
@@ -174,27 +182,91 @@ def main(args=None):
              LibertiesPerMove(BOARD_SIZE)]
 
     games = 0
-    i = 0
+    files = 0
+    skip = {
+        'noend': 0,
+        'nopro': 0,
+        'handicap': 0,
+        'nodoublepass': 0,
+        'fewmoves': 0,
+    }
     for filename in find_games(datadirs('games')):
         log.debug("Loading game %s", filename)
+        files += 1
         with open(filename, 'r') as fp:
-            game = sgf.Sgf_game.from_string(fp.read())
+            try:
+                game = sgf.Sgf_game.from_string(fp.read())
+            except ValueError as e:
+                log.error("Ignoring game %s: %s", filename, e)
+                continue
             game.name = os.path.splitext(os.path.basename(filename))[0]
+            root = game.get_root()
 
-        if not game.get_size() == BOARD_SIZE:
-            log.warn("Ignoring game %s: size is %d", filename, game.get_size())
+        if files % 1000 == 0:
+            log.info("Files processed: %d", files)
+
+        def validate():
+            try:
+                result = root.get("RE").split('+')[1].lower()
+                if result:
+                    if result[0] in ['r', 't', 'f']:
+                        # Resign, Timeout, Forfeit
+                        skip['noend'] += 1
+                        return
+                    result = float(result)
+            except (KeyError,    # No 'RE'
+                    IndexError,  # No '+', might be 'V[oid]', '?', or malformed
+                    ValueError,  # A comment in result
+                    ):
+                skip['noend'] += 1
+                return
+
+            try:
+                for rank in [root.get("BR"), root.get("WR")]:
+                    level, grade = int(rank[:-1]), rank[-1]
+                    if grade not in ['d', 'p'] or (grade == 'd' and level < 6):
+                        skip['nopro'] += 1
+                        return
+            except (KeyError, ValueError):
+                skip['nopro'] += 1
+                return
+
+            if root.has_property("HA"):
+                skip['handicap'] += 1
+                return
+
+            if not game.get_size() == BOARD_SIZE:
+                log.warn("Ignoring game %s: board size is not %d: %d",
+                         filename, BOARD_SIZE, game.get_size())
+                return
+
+            return True
+
+        if not validate():
             continue
 
-        i += 1
-        if not i % 10 == 0:
-            continue
-        chart = games % 10 == 0
+        chart = False # games % 10 == 0
 
-        board, plays = sgf_moves.get_setup_and_moves(game)
+        try:
+            board, plays = sgf_moves.get_setup_and_moves(game)
+        except ValueError as e:
+            log.error("Ignoring game %s: %s", filename, e)
+
+        # Sanity checks:
 
         if len(plays) <= 50:
             log.warn("Ignoring game %s: only %d moves", filename, len(plays))
+            skip['fewmoves'] += 1
             continue
+
+        #if not (plays[-2][1], plays[-1][1]) == (None, None):
+        #    log.warn("Ignoring game %s: does not end in double-pass: %s", filename, plays[-2:])
+        #    skip['nodoublepass'] += 1
+        #    continue
+
+        # Valid game
+        games += 1
+        #continue
 
         for hook in hooks:
             hook.gamestart(game, board, chart=chart)
@@ -211,64 +283,43 @@ def main(args=None):
             if chart:
                 print ascii_boards.render_board(board)
 
-        games += 1
-        log.debug("Games processed: %d", games)
-        if games == GAMES:
+        if GAMES and games >= GAMES:
             break
 
     for hook in hooks:
         hook.end()
 
-    log.info("%d games loaded", games)
+    log.info("Ignored games: %r", skip)
+    log.info("%d files loaded, %d games processed (%.0f%%)", files, games, 100. * games / files)
 
     pygame.quit()
     save_options()
 
 
-class StoneCountCenterPoint(object):
-    def __init__(self, point, label, color, limits):
-        self.point = point
-        self.label = label
-        self.color = color
+class Chart(object):
+    def __init__(self):
+        self.fig = plt.figure()
+        self.ax = self.fig.add_subplot(111)
 
-        self.perimeters = []
-        for i in xrange(limits[1] - limits[0] + 1):
-            self.perimeters.append(self.square_perimeter_points(i, limits))
+    def plot(self, *args, **kwargs):
+        self.ax.plot(*args, **kwargs)
 
-    def square_perimeter_points(self, distance, limits):
-        points = []
+    def set(self, title="", xlabel="", ylabel="", loc=0, grid=True, semilog=False, loglog=False):
+        self.ax.legend(loc=loc, labelspacing=0.2, prop={'size': 10})
+        if xlabel:  self.ax.set_xlabel(xlabel)
+        if ylabel:  self.ax.set_ylabel(ylabel)
+        if title:   self.ax.set_title(title)
+        if grid:    self.ax.grid()
+        if semilog: self.ax.semilogy()
+        if loglog:  self.ax.loglog()
 
-        def append(point):
-            if (limits[0] <= point[0] <= limits[1] and
-                limits[0] <= point[1] <= limits[1]):
-                points.append(point)
+    def save(self, name):
+        path = os.path.join(CACHEDIR, "%s.png" % name)
+        self.fig.savefig(path, dpi=300)
+        #launchfile(path)
 
-        if distance == 0:
-            append(self.point)
-            return points
-
-        # Bottom and Top rows
-        for x in xrange(self.point[0] - distance,
-                        self.point[0] + distance + 1):
-            append((x, self.point[1] - distance))
-            append((x, self.point[1] + distance))
-
-        # Left and Right columns (excluding corners)
-        for y in xrange(self.point[1] - distance + 1,
-                        self.point[1] + distance - 1 + 1):
-            append((self.point[0] - distance, y))
-            append((self.point[0] + distance, y))
-
-        return points
-
-
-def launchfile(filename):
-    if sys.platform.startswith('darwin'):
-        subprocess.call(('open', filename))
-    elif os.name == 'nt':  # works for sys.platform 'win32' and 'cygwin'
-        os.system("start %s" % filename)  # could be os.startfile() too
-    else:  # Assume POSIX (Linux, BSD, etc)
-        subprocess.call(('xdg-open', filename))
+    def close(self):
+        plt.close(self.fig)
 
 
 class Hook(object):
@@ -283,28 +334,8 @@ class Hook(object):
     def end(self):
         pass
 
-class Chart(object):
-    def __init__(self):
-        self.fig = plt.figure()
-        self.ax = self.fig.add_subplot(111)
-
-    def plot(self, *args, **kwargs):
-        self.ax.plot(*args, **kwargs)
-
-    def set(self, title="", xlabel="", ylabel="", loc=0):
-        self.ax.legend(loc=loc, labelspacing=0.2, prop={'size': 10})
-        if xlabel: self.ax.set_xlabel(xlabel)
-        if ylabel: self.ax.set_ylabel(ylabel)
-        if title:  self.ax.set_title(title)
-        self.ax.grid()
-
-    def save(self, name):
-        path = os.path.join(CACHEDIR, "%s.png" % name)
-        self.fig.savefig(path, dpi=300)
-        #launchfile(path)
-
-    def close(self):
-        plt.close(self.fig)
+class MoveHistogram(Hook):
+    pass
 
 class StonesPerSquare(Hook):
     def __init__(self, size):
@@ -344,14 +375,28 @@ class StonesPerSquare(Hook):
             center.blacks = []
             center.whites = []
 
-            for perimeter in center.perimeters:
-                for point in perimeter:
-                    color = board.get(*point)
-                    if   color == 'b': blacks += 1
-                    elif color == 'w': whites += 1
-                center.stones.append(blacks + whites)
-                center.blacks.append(blacks)
-                center.whites.append(whites)
+            for i, perimeter in enumerate(center.perimeters):
+                if center.corner:
+                    for point in perimeter:
+                        color = board.get(*point)
+                        if   color == 'b': blacks += 1
+                        elif color == 'w': whites += 1
+                    center.stones.append(blacks + whites)
+                    center.blacks.append(blacks)
+                    center.whites.append(whites)
+                else:
+                    if i % 2 == 0:
+                        for point in center.perimeters[i/2]:
+                            color = board.get(*point)
+                            if   color == 'b': blacks += 1
+                            elif color == 'w': whites += 1
+                        center.stones.append(blacks + whites)
+                        center.blacks.append(blacks)
+                        center.whites.append(whites)
+                    else:
+                        center.stones.append(center.stones[-1])
+                        center.blacks.append(center.blacks[-1])
+                        center.whites.append(center.whites[-1])
 
             center.gamestones.append(center.stones)
             center.gameblacks.append(center.blacks)
@@ -385,9 +430,12 @@ class StonesPerSquare(Hook):
             figtotal.close()
 
     def end(self):
-        chart = Chart()
+        chartlin = Chart()
+        chartlog = Chart()
         for center in self.points:
             games = len(center.gamestones)
+            if games ==0:
+                return
             areaavg = []
             areamin = []
             areamax = []
@@ -405,13 +453,58 @@ class StonesPerSquare(Hook):
                 areamin.append(min)
                 areamax.append(max)
 
-            chart.plot(areaavg, label=center.label + " - Avg", color=center.color)
-            chart.plot(areamin, label=center.label + " - Min", color=center.color, ls=':')
-            chart.plot(areamax, label=center.label + " - Max", color=center.color, ls='--')
+            for chart in [chartlin, chartlog]:
+                chart.plot(areaavg, label=center.label + " - Avg", color=center.color)
+                chart.plot(areamin, label=center.label + " - Min", color=center.color, ls=':')
+                chart.plot(areamax, label=center.label + " - Max", color=center.color, ls='--')
 
-        chart.set(loc=2, xlabel="Area (distance from point to edge)", ylabel="Stones",
-                  title="Stones per increasing areas - Average of %d games" % games)
-        chart.save("stones_average_%d" % games)
+        chartlin.set(loc=2, xlabel="Area (distance from point to edge)", ylabel="Stones",
+                     title="Stones per increasing areas - Average of %d games" % games)
+        chartlin.save("stones_average_%d" % games)
+
+        chartlog.set(loc=2, xlabel="Area (distance from point to edge)", ylabel="Stones (log)",
+                     title="Stones per increasing areas - Semilog - Average of %d games" % games,
+                     loglog=True)
+        chartlog.save("stones_average_%d_log" % games)
+
+
+class StoneCountCenterPoint(object):
+    def __init__(self, point, label, color, limits):
+        self.point = point
+        self.label = label
+        self.color = color
+
+        self.corner = self.point[0] in limits and self.point[1] in limits
+
+        self.perimeters = []
+        for i in xrange(limits[1] - limits[0] + 1):
+            self.perimeters.append(self.square_perimeter_points(i, limits))
+
+    def square_perimeter_points(self, distance, limits):
+        points = []
+
+        def append(point):
+            if (limits[0] <= point[0] <= limits[1] and
+                limits[0] <= point[1] <= limits[1]):
+                points.append(point)
+
+        if distance == 0:
+            append(self.point)
+            return points
+
+        # Bottom and Top rows
+        for x in xrange(self.point[0] - distance,
+                        self.point[0] + distance + 1):
+            append((x, self.point[1] - distance))
+            append((x, self.point[1] + distance))
+
+        # Left and Right columns (excluding corners)
+        for y in xrange(self.point[1] - distance + 1,
+                        self.point[1] + distance - 1 + 1):
+            append((self.point[0] - distance, y))
+            append((self.point[0] + distance, y))
+
+        return points
 
 
 class LibertiesPerMove(Hook):
@@ -463,6 +556,7 @@ class LibertiesPerMove(Hook):
         libavg = []
         libmin = []
         libmax = []
+        libgames = []
         for n in xrange(self.maxmoves):
             sum = 0
             games = 0
@@ -476,9 +570,16 @@ class LibertiesPerMove(Hook):
                     if v < min: min = v
                     if v > max: max = v
 
+            if games == 0:
+                continue
+
             libavg.append(float(sum / games))
             libmin.append(min)
             libmax.append(max)
+            libgames.append(games)
+
+        if not libavg:
+            return
 
         chart = Chart()
         chart.plot(libavg, label="Avgerage", color="red")
@@ -488,10 +589,10 @@ class LibertiesPerMove(Hook):
         games = len(self.totalliberties)
         chart.set(loc=2, xlabel="Moves", ylabel="Liberties",
                   title="Liberties per move - Average of %d games" % games)  # loc=2: legend on upper left
+
+        chart.ax = chart.ax.twinx()
+        chart.plot(libgames, label="Games",  color="blue", ls=':')
+        chart.set(loc=3, ylabel="Games")  # loc=2: legend on upper left
+
         chart.save("liberties_average_%d" % games)
         chart.close()
-
-
-
-if __name__ == "__main__":
-    main(sys.argv[1:])
