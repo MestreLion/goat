@@ -189,6 +189,7 @@ def main(argv=None):
         'handicap': 0,
         'nodoublepass': 0,
         'fewmoves': 0,
+        'error': 0,
     }
     for filename in find_games(datadirs('games')):
         log.debug("Loading game %s", filename)
@@ -198,6 +199,7 @@ def main(argv=None):
                 game = sgf.Sgf_game.from_string(fp.read())
             except ValueError as e:
                 log.error("Ignoring game %s: %s", filename, e)
+                skip['error'] += 1
                 continue
             game.name = os.path.splitext(os.path.basename(filename))[0]
             root = game.get_root()
@@ -250,7 +252,9 @@ def main(argv=None):
         try:
             board, plays = sgf_moves.get_setup_and_moves(game)
         except ValueError as e:
-            log.error("Ignoring game %s: %s", filename, e)
+            log.error("Error in game %s: %s", filename, e)
+            skip['error'] += 1
+            continue
 
         # Sanity checks:
 
@@ -266,6 +270,7 @@ def main(argv=None):
 
         # Valid game
         games += 1
+        discard = False
         #continue
 
         for hook in hooks:
@@ -274,12 +279,20 @@ def main(argv=None):
         for colour, move in plays:
             if move is not None:
                 row, col = move
-                board.play(row, col, colour)
+                try:
+                    board.play(row, col, colour)
+                except Exception as e:
+                    log.error("Error in game %s, move (%s, %s): %s", filename, colour, move, e)
+                    skip['error'] += 1
+                    games -= 1
+                    discard = True
+                    break
+
             for hook in hooks:
                 hook.move(game, board, move)
 
         for hook in hooks:
-            hook.gameover(game, board, chart=chart)
+            hook.gameover(game, board, chart=chart, discard=discard)
             if chart:
                 print ascii_boards.render_board(board)
 
@@ -329,7 +342,7 @@ class Hook(object):
         pass
     def move(self, game, board, move):
         pass
-    def gameover(self, game, board, chart=False):
+    def gameover(self, game, board, chart=False, discard=False):
         pass
     def end(self):
         pass
@@ -354,7 +367,10 @@ class StonesPerSquare(Hook):
             center.gamewiners = []
             center.gamelosers = []
 
-    def gameover(self, game, board, chart=False):
+    def gameover(self, game, board, chart=False, discard=False):
+        if discard:
+            return
+
         if game.get_winner() == 'b':
             blackwinner = True
             bw = 1; ww = 1
@@ -511,6 +527,7 @@ class LibertiesPerMove(Hook):
     def __init__(self, size):
         self.size = size
         self.totalliberties = []
+        self.gameliberties = []
         self.maxmoves = 0
         self.points = []
         limits = (0, self.size - 1)
@@ -539,7 +556,10 @@ class LibertiesPerMove(Hook):
                         liberties += 1
         self.gameliberties.append(liberties)
 
-    def gameover(self, game, board, chart=False):
+    def gameover(self, game, board, chart=False, discard=False):
+        if discard:
+            return
+
         self.totalliberties.append(self.gameliberties)
         moves = len(self.gameliberties)
         if moves > self.maxmoves:
