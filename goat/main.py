@@ -26,18 +26,22 @@ import progressbar  # Debian: python-progressbar
 import pygame  # Debian: python-pygame
 
 # Pypi: gomill
-from gomill import ascii_boards
-from gomill import sgf
-from gomill import sgf_moves
+import gomill.sgf
+import gomill.sgf_moves
+import gomill.sgf_properties
+import gomill.ascii_boards
 
 import globals as g
 import utils
 import calcs
+import gogame
 
 log = logging.getLogger(__name__)
 
 class CustomError(Exception):
     pass
+
+
 
 def find_games(paths):
 
@@ -89,7 +93,9 @@ def main(argv=None):
         level=logging.INFO
     )
 
-    utils.safemakedirs(g.CACHEDIR)
+    for cachedir in ['archives', 'boards', 'hooks']:
+        utils.safemakedirs(os.path.join(g.CACHEDIR, cachedir))
+
     g.load_options(argv)
     #pygame.display.init()
     #pygame.font.init()
@@ -97,7 +103,7 @@ def main(argv=None):
 
     hooks = [calcs.StonesPerSquare(g.BOARD_SIZE),
              calcs.LibertiesPerMove(g.BOARD_SIZE)]
-    hooks = []
+    #hooks = []
 
     games = 0
     files = 0
@@ -112,15 +118,14 @@ def main(argv=None):
     for filename in find_games(utils.datadirs('games')):
         log.debug("Loading game %s", filename)
         files += 1
-        with open(filename, 'r') as fp:
-            try:
-                game = sgf.Sgf_game.from_string(fp.read())
-            except ValueError as e:
-                log.error("Ignoring game %s: %s", filename, e)
-                skip['error'] += 1
-                continue
-            game.name = os.path.splitext(os.path.basename(filename))[0]
-            root = game.get_root()
+        try:
+            game = gogame.GoGame.from_sgf(filename)
+        except gogame.GoGameError as e:
+            log.error("Ignoring game %s: %s", filename, e)
+            skip['error'] += 1
+            continue
+
+        root = game.sgfgame.get_root()
 
         if files % 1000 == 0:
             log.info("Files processed: %d", files)
@@ -155,9 +160,9 @@ def main(argv=None):
                 skip['handicap'] += 1
                 return
 
-            if not game.get_size() == g.BOARD_SIZE:
+            if not game.size == g.BOARD_SIZE:
                 log.warn("Ignoring game %s: board size is not %d: %d",
-                         filename, g.BOARD_SIZE, game.get_size())
+                         filename, g.BOARD_SIZE, game.size)
                 return
 
             return True
@@ -167,17 +172,18 @@ def main(argv=None):
 
         chart = False # games % 10 == 0
 
+
         try:
-            board, plays = sgf_moves.get_setup_and_moves(game)
-        except ValueError as e:
-            log.error("Error in game %s: %s", filename, e)
+            game.get_setup_and_moves()
+        except gogame.GoGameError as e:
+            log.error("Ignoring game %s: %s", filename, e)
             skip['error'] += 1
             continue
 
         # Sanity checks:
 
-        if len(plays) <= 50:
-            log.warn("Ignoring game %s: only %d moves", filename, len(plays))
+        if len(game.plays) <= 50:
+            log.warn("Ignoring game %s: only %d moves", filename, len(game.plays))
             skip['fewmoves'] += 1
             continue
 
@@ -189,30 +195,20 @@ def main(argv=None):
         # Valid game
         games += 1
         discard = False
+        #game = gogame.GoGame(game, )
         #continue
 
         for hook in hooks:
-            hook.gamestart(game, board, chart=chart)
+            hook.gamestart(game.sgfgame, game.initial, chart=chart)
 
-        for colour, move in plays:
-            if move is not None:
-                row, col = move
-                try:
-                    board.play(row, col, colour)
-                except Exception as e:
-                    log.error("Error in game %s, move (%s, %s): %s", filename, colour, move, e)
-                    skip['error'] += 1
-                    games -= 1
-                    discard = True
-                    break
-
+        for move, board in game.plays:
             for hook in hooks:
-                hook.move(game, board, move)
+                hook.move(game.sgfgame, board, move)
 
         for hook in hooks:
-            hook.gameover(game, board, chart=chart, discard=discard)
+            hook.gameover(game.sgfgame, board, chart=chart, discard=discard)
             if chart:
-                print ascii_boards.render_board(board)
+                print gomill.ascii_boards.render_board(board)
 
         if g.options.games and games >= g.options.games:
             break

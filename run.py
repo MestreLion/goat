@@ -26,6 +26,6 @@ import goat.main
 
 if __name__ == "__main__":
     try:
-        sys.exit(goat.main.main(sys.argv[:1]))
+        sys.exit(goat.main.main(sys.argv[1:]))
     except KeyboardInterrupt:
         pass
