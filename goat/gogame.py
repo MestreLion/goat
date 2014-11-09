@@ -103,7 +103,7 @@ class Board(object):
     _ascii = {
         None  : " ",
         'b'   : "#",
-        'w'   : "O",
+        'w'   : "o",
     }
 
     _mapping = {

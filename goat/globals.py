@@ -50,7 +50,7 @@ profile = False
 
 def parseargs(argv=None):
     parser = argparse.ArgumentParser(
-        description="Go Analisys Tool",)
+        description="Go Analysis Tool",)
 
     loglevels = ['debug', 'info', 'warn', 'error', 'critical']
     logdefault = 'info'
