@@ -101,9 +101,11 @@ def main(argv=None):
     #pygame.font.init()
 
 
-    hooks = [calcs.StonesPerSquare(g.BOARD_SIZE),
-             calcs.LibertiesPerMove(g.BOARD_SIZE)]
-    #hooks = []
+    hooks = [
+        calcs.StonesPerSquare(g.BOARD_SIZE),
+#        calcs.LibertiesPerMove(g.BOARD_SIZE),
+#        calcs.Territories(g.BOARD_SIZE),
+    ]
 
     games = 0
     files = 0
@@ -114,6 +116,7 @@ def main(argv=None):
         'nodoublepass': 0,
         'fewmoves': 0,
         'error': 0,
+        'notaga': 0,
     }
     for filename in find_games(utils.datadirs('games')):
         log.debug("Loading game %s", filename)
@@ -192,21 +195,26 @@ def main(argv=None):
         #    skip['nodoublepass'] += 1
         #    continue
 
+#         if not root.get("RU") == "AGA":
+#             skip['notaga'] += 1
+#             continue
+
         # Valid game
         games += 1
         discard = False
+
         #game = gogame.GoGame(game, )
         #continue
 
         for hook in hooks:
-            hook.gamestart(game.sgfgame, game.initial, chart=chart)
+            hook.gamestart(game, game.initial, chart=chart)
 
-        for move, board in game.plays:
+        for move, board in game.oldplays():
             for hook in hooks:
-                hook.move(game.sgfgame, board, move)
+                hook.move(game, board, move)
 
         for hook in hooks:
-            hook.gameover(game.sgfgame, board, chart=chart, discard=discard)
+            hook.gameover(game, board, chart=chart, discard=discard)
             if chart:
                 print gomill.ascii_boards.render_board(board)
 
@@ -217,7 +225,7 @@ def main(argv=None):
         hook.end()
 
     log.info("Ignored games: %r", skip)
-    log.info("%d files loaded, %d games processed (%.0f%%)", files, games, 100. * games / files)
+    log.info("%d files loaded, %d games processed (%.01f%%)", files, games, 100. * games / files)
 
     pygame.quit()
     g.save_options()

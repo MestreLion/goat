@@ -18,11 +18,36 @@
 '''Calculation hooks'''
 
 import os
+import logging
 
 import matplotlib.pyplot as plt  # Debian: python-matplotlib
 
+import gomill.ascii_boards
+
 import globals as g
 import utils
+import ascii
+import gogame
+
+log = logging.getLogger(__name__)
+
+def board_points(size):
+    points = []
+    limits = (0, size - 1)
+
+    for i in xrange(size):
+        for j in xrange(size):
+            neighs = []
+            for neigh in [(i, j-1),
+                          (i, j+1),
+                          (i-1, j),
+                          (i+1, j)]:
+                if (limits[0] <= neigh[0] <= limits[1] and
+                    limits[0] <= neigh[1] <= limits[1]):
+                    neighs.append(neigh)
+            points.append(((i, j), neighs))
+    return points
+
 
 class Chart(object):
     def __init__(self):
@@ -69,6 +94,7 @@ class MoveHistogram(Hook):
 class StonesPerSquare(Hook):
     def __init__(self, size):
         self.size = size
+        self.games = 0
         limits = (0, self.size - 1)
         self.points = (StoneCountCenterPoint((limits[0], limits[0]), "Lower Left",  "red",    limits),
                        StoneCountCenterPoint((limits[0], limits[1]), "Lower Right", "green",  limits),
@@ -87,7 +113,11 @@ class StonesPerSquare(Hook):
         if discard:
             return
 
-        if game.get_winner() == 'b':
+        self.games += 1
+        if self.games % 101 == 0:
+            chart = True
+
+        if game.winner == gogame.BLACK:
             blackwinner = True
             bw = 1; ww = 1
             bs = '-'; ws = '--'
@@ -111,8 +141,8 @@ class StonesPerSquare(Hook):
                 if center.corner:
                     for point in perimeter:
                         color = board.get(*point)
-                        if   color == 'b': blacks += 1
-                        elif color == 'w': whites += 1
+                        if   color == gogame.BLACK: blacks += 1
+                        elif color == gogame.WHITE: whites += 1
                     center.stones.append(blacks + whites)
                     center.blacks.append(blacks)
                     center.whites.append(whites)
@@ -120,8 +150,8 @@ class StonesPerSquare(Hook):
                     if i % 2 == 0:
                         for point in center.perimeters[i/2]:
                             color = board.get(*point)
-                            if   color == 'b': blacks += 1
-                            elif color == 'w': whites += 1
+                            if   color == gogame.BLACK: blacks += 1
+                            elif color == gogame.WHITE: whites += 1
                         center.stones.append(blacks + whites)
                         center.blacks.append(blacks)
                         center.whites.append(whites)
@@ -160,6 +190,9 @@ class StonesPerSquare(Hook):
             figtotal.save("stones_total_%s" % game.name)
             figcolor.close()
             figtotal.close()
+
+            log.info("Games processed: %d", self.games)
+            self.end()
 
     def end(self):
         chartlin = Chart()
@@ -241,24 +274,10 @@ class StoneCountCenterPoint(object):
 
 class LibertiesPerMove(Hook):
     def __init__(self, size):
-        self.size = size
         self.totalliberties = []
         self.gameliberties = []
         self.maxmoves = 0
-        self.points = []
-        limits = (0, self.size - 1)
-
-        for i in xrange(self.size):
-            for j in xrange(self.size):
-                neighs = []
-                for neigh in [(i, j-1),
-                              (i, j+1),
-                              (i-1, j),
-                              (i+1, j)]:
-                    if (limits[0] <= neigh[0] <= limits[1] and
-                        limits[0] <= neigh[1] <= limits[1]):
-                        neighs.append(neigh)
-                self.points.append(((i, j), neighs))
+        self.points = board_points(size)
 
     def gamestart(self, game, board, chart):
         self.gameliberties = []
@@ -332,3 +351,57 @@ class LibertiesPerMove(Hook):
 
         chart.save("liberties_average_%d" % games)
         chart.close()
+
+
+
+class Territory(object):
+    def __init__(self):
+        self.points = []
+        self.color = None
+
+class Territories(Hook):
+    def __init__(self, size):
+        self.points = board_points(size)
+        self.totalterritories = []
+        self.gameterritories = []
+        self.gameskip = False
+        self.games = 0
+
+    def gamestart(self, game, board, chart=False):
+        self.gameskip = not game.get_root().get("RU") == "AGA"
+        self.gameterritories = []
+
+    def gameover(self, game, board, chart=False, discard=False):
+        if discard or self.gameskip:
+            return
+
+        self.games += 1
+
+        for point, neighs in self.points:
+            #if point in [(17, 11), (18, 10), (18, 11), (18, 12)]:
+            #    pass
+            color = board.get(*point)
+            if color is None:
+                for neigh in neighs:
+                    for t in self.gameterritories:
+                        if neigh in t.points:
+                            t.points.append(point)
+                            break
+                    else:
+                        continue
+                    break
+                else:
+                    t = Territory()
+                    t.points.append(point)
+                    self.gameterritories.append(t)
+
+        print ascii.render_board(board)
+        for territory in sorted(self.gameterritories, key=lambda x: len(x.points)):
+            continue
+            log.info("%d: %r",  len(territory.points), territory.points)
+        print
+
+
+    def end(self):
+        log.info("Territories: %d", self.games)
+        pass

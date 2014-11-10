@@ -51,6 +51,7 @@ class GoGame(object):
         gogame.sgffile = filename
         gogame.size = gogame.sgfgame.get_size()
         gogame.name = os.path.splitext(os.path.basename(filename))[0]
+        gogame.winner = gogame.sgfgame.get_winner()
 
         return gogame
 
@@ -58,30 +59,45 @@ class GoGame(object):
         self.name = ""
         self.sgfgame = None
         self.sgffile = ""
+        self.sgfboard = None
+        self.sgfplays = None
         self.size = 0
         self.id = ""
         self.initial = None
         self.plays = []
 
+
     def get_setup_and_moves(self):
         try:
-            sgfboard, sgfplays = gomill.sgf_moves.get_setup_and_moves(self.sgfgame)
+            self.sgfboard, self.sgfplays = gomill.sgf_moves.get_setup_and_moves(self.sgfgame)
+            self.plays = self.sgfplays
         except ValueError as e:
             raise GoGameError(e)
 
-        self.initial = Board(self.size, sgfboard.copy())
-        self.id = self._gameid(sgfplays)
+    def oldplays(self):
+        for color, move in self.sgfplays:
+            if move is not None:
+                row, col = move
+                try:
+                    self.sgfboard.play(row, col, color)
+                    yield move, self.sgfboard
+                except Exception:
+                    raise
 
-        gamefile = os.path.join(g.CACHEDIR, 'boards', "%s.json" % self.id)
-        if not os.path.exists(gamefile):
-            for color, move in sgfplays:
-                if move is not None:
-                    row, col = move
-                    try:
-                        sgfboard.play(row, col, color)
-                    except Exception as e:
-                        raise
-                self.plays.append(((color, move), Board(self.size, sgfboard.copy())))
+        # @@ for later...
+#         self.initial = Board(self.size, sgfboard.copy())
+#         self.id = self._gameid(sgfplays)
+#
+#         gamefile = os.path.join(g.CACHEDIR, 'boards', "%s.json" % self.id)
+#         if not os.path.exists(gamefile):
+#             for color, move in sgfplays:
+#                 if move is not None:
+#                     row, col = move
+#                     try:
+#                         sgfboard.play(row, col, color)
+#                     except Exception as e:
+#                         raise
+#                 self.plays.append(((color, move), Board(self.size, sgfboard.copy())))
 
 
 
