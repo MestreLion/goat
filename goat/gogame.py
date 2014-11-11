@@ -21,7 +21,10 @@ import os
 import sys
 import logging
 
+# Pypi: gomill
 import gomill.sgf
+import gomill.sgf_moves
+import gomill.sgf_properties
 
 import globals as g
 import utils
@@ -51,7 +54,11 @@ class GoGame(object):
         gogame.sgffile = filename
         gogame.size = gogame.sgfgame.get_size()
         gogame.name = os.path.splitext(os.path.basename(filename))[0]
-        gogame.winner = gogame.sgfgame.get_winner()
+
+        try:
+            gogame.winner = gogame.sgfgame.get_winner()
+        except ValueError as e:
+            raise GoGameError("No winner: %s" % e)
 
         return gogame
 

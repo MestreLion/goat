@@ -21,8 +21,7 @@ import os
 import logging
 
 import matplotlib.pyplot as plt  # Debian: python-matplotlib
-
-import gomill.ascii_boards
+import numpy  # Debian: python-numpy
 
 import globals as g
 import utils
@@ -57,8 +56,8 @@ class Chart(object):
     def plot(self, *args, **kwargs):
         self.ax.plot(*args, **kwargs)
 
-    def set(self, title="", xlabel="", ylabel="", loc=0, grid=True, semilog=False, loglog=False):
-        self.ax.legend(loc=loc, labelspacing=0.2, prop={'size': 10})
+    def set(self, title="", xlabel="", ylabel="", loc=0, grid=True, semilog=False, loglog=False, legend=True):
+        if legend:  self.ax.legend(loc=loc, labelspacing=0.2, prop={'size': 10})
         if xlabel:  self.ax.set_xlabel(xlabel)
         if ylabel:  self.ax.set_ylabel(ylabel)
         if title:   self.ax.set_title(title)
@@ -100,7 +99,8 @@ class StonesPerSquare(Hook):
                        StoneCountCenterPoint((limits[0], limits[1]), "Lower Right", "green",  limits),
                        StoneCountCenterPoint((limits[1], limits[0]), "Upper Left",  "blue",   limits),
                        StoneCountCenterPoint((limits[1], limits[1]), "Upper Right", "orange", limits),
-                       StoneCountCenterPoint(2*(limits[1]/2,), "Center", "black", limits))
+                       StoneCountCenterPoint(2*(limits[1]/2,), "Center", "black", limits),
+                       )
 
         for center in self.points:
             center.gamestones = []
@@ -231,6 +231,85 @@ class StonesPerSquare(Hook):
                      title="Stones per increasing areas - Semilog - Average of %d games" % games,
                      loglog=True)
         chartlog.save("stones_average_%d_log" % games)
+
+
+class FractalDimension(Hook):
+    def __init__(self, size):
+        self.size = size
+        self.games = 0
+        limits = (0, self.size - 1)
+        self.corners = (StoneCountCenterPoint((limits[0], limits[0]), "Lower Left",  "red",    limits),
+                       StoneCountCenterPoint((limits[0], limits[1]), "Lower Right", "green",  limits),
+                       StoneCountCenterPoint((limits[1], limits[0]), "Upper Left",  "blue",   limits),
+                       StoneCountCenterPoint((limits[1], limits[1]), "Upper Right", "orange", limits),
+                       #StoneCountCenterPoint(2*(limits[1]/2,), "Center", "black", limits),
+                       )
+        self.totalstones = []
+
+
+    def gameover(self, game, board, chart=False, discard=False):
+        if discard:
+            return
+
+        self.games += 1
+        if self.games % 10000 == 0:
+            chart = True
+
+        for corner in self.corners:
+            stones = 0
+            corner.stones = []
+            for perimeter in corner.perimeters:
+                for point in perimeter:
+                    if board.get(*point) is not None:
+                        stones += 1
+                corner.stones.append(stones)
+
+        gamestones = []
+        corners = float(len(self.corners))
+        for perimeter in xrange(self.size):
+            stones = 0
+            for corner in self.corners:
+                stones += corner.stones[perimeter]
+            if stones > 0:
+                gamestones.append(stones / corners)
+
+        samples = len(gamestones)
+        squaresides = list(xrange(1 + self.size - samples, self.size + 1))
+        logx = numpy.log(squaresides)
+        logy = numpy.log(gamestones)
+        coeffs = numpy.polyfit(logx, logy, deg=1)
+        poly = numpy.poly1d(coeffs)
+        yfit = lambda x: numpy.exp(poly(numpy.log(x)))
+
+        self.totalstones.append(coeffs[0])
+
+        if chart:
+            figavg = Chart()
+            figavg.plot(squaresides, gamestones, 'bo', label="Game Data")
+            figavg.plot(squaresides, yfit(squaresides), 'r-', label="Linear Regression")
+            figavg.set(loc=2, xlabel="Square Side", ylabel="Stones", loglog=True,
+                       title="Stones per increasing squares - Game %s, m = %.2f" % (game.name, coeffs[0]))
+            figavg.save("fractal_%s_log" % game.name)
+            figavg.close()
+
+            figlin = Chart()
+            figlin.plot(squaresides, gamestones, label="Stones", color="red")
+            figlin.set(loc=2, xlabel="Square Side", ylabel="Stones",
+                       title="Stones per increasing squares - Game %s" % game.name)
+            figlin.save("fractal_%s" % game.name)
+            figlin.close()
+
+            log.info("Games processed: %d", self.games)
+            self.end()
+
+    def end(self):
+        games = len(self.totalstones)
+        chart = Chart()
+        chart.ax.hist(self.totalstones, bins=20)
+        chart.set(xlabel="Exponent", ylabel="Games", legend=False,
+                   title="Stones per increasing squares - Histogram of %d games" % games)
+        chart.save("fractal_histogram_%s" % games)
+        chart.close()
 
 
 class StoneCountCenterPoint(object):
@@ -378,8 +457,6 @@ class Territories(Hook):
         self.games += 1
 
         for point, neighs in self.points:
-            #if point in [(17, 11), (18, 10), (18, 11), (18, 12)]:
-            #    pass
             color = board.get(*point)
             if color is None:
                 for neigh in neighs:
@@ -393,6 +470,9 @@ class Territories(Hook):
                 else:
                     t = Territory()
                     t.points.append(point)
+                    for neigh in neighs:
+                        if board.get(*neigh) is None:
+                            t.points.append(neigh)
                     self.gameterritories.append(t)
 
         print ascii.render_board(board)

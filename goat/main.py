@@ -25,12 +25,6 @@ import tarfile
 import progressbar  # Debian: python-progressbar
 import pygame  # Debian: python-pygame
 
-# Pypi: gomill
-import gomill.sgf
-import gomill.sgf_moves
-import gomill.sgf_properties
-import gomill.ascii_boards
-
 import globals as g
 import utils
 import calcs
@@ -102,9 +96,10 @@ def main(argv=None):
 
 
     hooks = [
-        calcs.StonesPerSquare(g.BOARD_SIZE),
+#        calcs.StonesPerSquare(g.BOARD_SIZE),
 #        calcs.LibertiesPerMove(g.BOARD_SIZE),
 #        calcs.Territories(g.BOARD_SIZE),
+        calcs.FractalDimension(g.BOARD_SIZE),
     ]
 
     games = 0
@@ -209,14 +204,20 @@ def main(argv=None):
         for hook in hooks:
             hook.gamestart(game, game.initial, chart=chart)
 
-        for move, board in game.oldplays():
-            for hook in hooks:
-                hook.move(game, board, move)
+        # @@ try/except temporary until oldplays() is replaced
+        try:
+            for move, board in game.oldplays():
+                for hook in hooks:
+                    hook.move(game, board, move)
+        except Exception as e:
+            log.error("Ignoring game %s: %s", filename, e)
+            skip['error'] += 1
+            games -= 1
+            board = move = None
+            discard = True
 
         for hook in hooks:
             hook.gameover(game, board, chart=chart, discard=discard)
-            if chart:
-                print gomill.ascii_boards.render_board(board)
 
         if g.options.games and games >= g.options.games:
             break
