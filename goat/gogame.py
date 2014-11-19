@@ -87,7 +87,7 @@ class GoGame(object):
                 row, col = move
                 try:
                     self.sgfboard.play(row, col, color)
-                    yield move, self.sgfboard
+                    yield (color, move), self.sgfboard
                 except Exception:
                     raise
 

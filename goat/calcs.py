@@ -140,6 +140,91 @@ class MoveHistogram(Hook):
         chart.close()
 
 
+class TimeLine(object):
+    def __init__(self, size):
+        self.points = board_points(size)
+        self.games = 0
+
+        self.totalblacks = []
+        self.totalwhites = []
+        self.totalblackscaptured = []
+        self.totalwhitescaptured = []
+
+    def gamestart(self, game, board, chart=False):
+        self.gameblacks = [0]
+        self.gamewhites = [0]
+        self.gameblackscaptured = [0]
+        self.gamewhitescaptured = [0]
+
+    def move(self, game, board, move):
+        blacks = 0
+        whites = 0
+        for point, _ in self.points:
+            color = board.get(*point)
+            if   color == gogame.BLACK: blacks += 1
+            elif color == gogame.WHITE: whites += 1
+
+        color, _ = move
+        if   color == gogame.BLACK:
+            blackscaptured = 0
+            whitescaptured = self.gamewhites[-1] - whites
+        elif color == gogame.WHITE:
+            blackscaptured = self.gameblacks[-1] - blacks
+            whitescaptured = 0
+        else:  # pass
+            blackscaptured = whitescaptured = 0
+
+        self.gameblackscaptured.append(self.gameblackscaptured[-1] + blackscaptured)
+        self.gamewhitescaptured.append(self.gamewhitescaptured[-1] + whitescaptured)
+
+        self.gameblacks.append(blacks)
+        self.gamewhites.append(whites)
+
+    def gameover(self, game, board, chart=False, discard=False):
+        if discard:
+            return
+
+        self.totalblacks.append(self.gameblacks)
+        self.totalwhites.append(self.gamewhites)
+        self.totalblackscaptured.append(self.gameblackscaptured)
+        self.totalwhitescaptured.append(self.gamewhitescaptured)
+
+        self.games += 1
+        if self.games % 5000 == 0:
+            chart = Chart()
+            chart.plot(self.gameblacks, color="red",  lw=2, label="Black stones")
+            chart.plot(self.gamewhites, color="blue", lw=2, label="White stones")
+            chart.plot(self.gameblackscaptured, color="red",  label="Black captured")
+            chart.plot(self.gamewhitescaptured, color="blue", label="White captured")
+            chart.set(title="Stones per Move - Game %s" % game.name, xlabel="Moves", ylabel="Stones", loc=2)
+            chart.save("timeline_%s" % game.name)
+            chart.close()
+            self.end()
+
+    def end(self):
+        log.info("Games processed: %d", self.games)
+
+        plots = [
+            dict(data=None, color="red",  lw=1.0, ls="-",  label="Black stones",  source=self.totalblacks),
+            dict(data=None, color="blue", lw=1.0, ls="-",  label="White stones",  source=self.totalwhites),
+            dict(data=None, color="red",  lw=0.5, ls="-", label="Black captured", source=self.totalblackscaptured),
+            dict(data=None, color="blue", lw=0.5, ls="-", label="White captured", source=self.totalwhitescaptured),
+        ]
+
+        chart = Chart()
+        for plot in plots:
+            maxmoves = len(sorted(plot['source'], key=len, reverse=True)[0])
+            data = numpy.array([game + [numpy.nan] * (maxmoves - len(game)) for game in plot['source']])
+            data = numpy.ma.masked_array(data, numpy.isnan(data))
+            chart.plot(numpy.mean(data, axis=0), color=plot['color'], ls=plot['ls'], lw=plot['lw'], label=plot['label'] + " - avg")
+            chart.plot(numpy.max( data, axis=0), color=plot['color'], ls=':', lw=plot['lw'], label=plot['label'] + " - max")
+            chart.plot(numpy.min( data, axis=0), color=plot['color'], ls=':', lw=plot['lw'], label=plot['label'] + " - min")
+        chart.set(title="Stones per Move - %d games" % self.games,
+                  xlabel="Move", ylabel="Stones", loc=2)
+        chart.save("timeline_%d" % self.games)
+        chart.close()
+
+
 class StonesPerSquare(Hook):
     def __init__(self, size):
         self.size = size
