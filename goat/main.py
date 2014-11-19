@@ -99,7 +99,8 @@ def main(argv=None):
 #        calcs.StonesPerSquare(g.BOARD_SIZE),
 #        calcs.LibertiesPerMove(g.BOARD_SIZE),
 #        calcs.Territories(g.BOARD_SIZE),
-        calcs.FractalDimension(g.BOARD_SIZE),
+#        calcs.FractalDimension(g.BOARD_SIZE),
+        calcs.MoveHistogram(),
     ]
 
     games = 0

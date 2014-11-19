@@ -68,7 +68,7 @@ class Chart(object):
     def save(self, name):
         for ext in ['png', 'eps', 'svg']:
             path = os.path.join(g.CACHEDIR, "%s.%s" % (name, ext))
-            self.fig.savefig(path, dpi=300)
+            self.fig.savefig(path, dpi=240)
         #launchfile(path)
 
     def close(self):
@@ -87,8 +87,58 @@ class Hook(object):
     def end(self):
         pass
 
+
 class MoveHistogram(Hook):
-    pass
+    def __init__(self):
+        self.movespergame = []
+        self.moves = 0
+        self.games = 0
+
+    def gamestart(self, game, board, chart=False):
+        self.moves = 0
+
+    def move(self, game, board, move):
+        self.moves += 1
+
+    def gameover(self, game, board, chart=False, discard=False):
+        if not discard:
+            self.movespergame.append(self.moves)
+
+        self.games += 1
+        if self.games % 2001 == 0:
+            self.end()
+
+    def end(self):
+        self.movespergame.sort()
+        games = len(self.movespergame)
+
+        chart = Chart()
+        chart.ax.hist(self.movespergame, bins=100, label="Histogram")
+        chart.set(xlabel="Moves", ylabel="Games of n moves", loc=2,
+                  title="Moves per Game - Histogram of %d games\n"
+                    "Min=%d, Avg=%d, Max=%d" % (
+                    games,
+                    min(self.movespergame),
+                    int(sum(self.movespergame)/games),
+                    max(self.movespergame),
+                    ))
+
+        survivors = []
+        gamesleft = games
+        i = 0
+        for m in xrange(max(self.movespergame) + 1):
+            while i < games and m == self.movespergame[i]:
+                gamesleft -= 1
+                i += 1
+            survivors.append(gamesleft)
+
+        chart.ax = chart.ax.twinx()
+        chart.plot(survivors, label="Games left",  color="red")
+        chart.set(loc=3, ylabel="Games of at least n moves")
+
+        chart.save("move_histogram_%s" % games)
+        chart.close()
+
 
 class StonesPerSquare(Hook):
     def __init__(self, size):
