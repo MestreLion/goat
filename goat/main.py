@@ -101,6 +101,7 @@ def main(argv=None):
 #        calcs.Territories(g.BOARD_SIZE),
 #        calcs.FractalDimension(g.BOARD_SIZE),
         calcs.MoveHistogram(),
+#        calcs.TimeLine(g.BOARD_SIZE)
     ]
 
     games = 0

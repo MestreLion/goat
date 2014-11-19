@@ -101,19 +101,24 @@ class MoveHistogram(Hook):
         self.moves += 1
 
     def gameover(self, game, board, chart=False, discard=False):
-        if not discard:
-            self.movespergame.append(self.moves)
+        if discard:
+            return
+
+        self.movespergame.append(self.moves)
 
         self.games += 1
-        if self.games % 2001 == 0:
+        if self.games % 2000 == 0:
             self.end()
 
     def end(self):
+        log.info("Games processed: %d", self.games)
         self.movespergame.sort()
         games = len(self.movespergame)
+        binwidth = 5
+        bins = range(min(self.movespergame), max(self.movespergame) + binwidth, binwidth)
 
         chart = Chart()
-        chart.ax.hist(self.movespergame, bins=100, label="Histogram")
+        chart.ax.hist(self.movespergame, bins=bins, label="Histogram")
         chart.set(xlabel="Moves", ylabel="Games of n moves", loc=2,
                   title="Moves per Game - Histogram of %d games\n"
                     "Min=%d, Avg=%d, Max=%d" % (
