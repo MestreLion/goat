@@ -22,19 +22,17 @@ import logging
 import zipfile
 import tarfile
 
-import progressbar  # Debian: python-progressbar
-import pygame  # Debian: python-pygame
-
 import globals as g
 import utils
 import calcs
 import gogame
 
+
 log = logging.getLogger(__name__)
+
 
 class CustomError(Exception):
     pass
-
 
 
 def find_games(paths):
@@ -91,8 +89,6 @@ def main(argv=None):
         utils.safemakedirs(os.path.join(g.CACHEDIR, cachedir))
 
     g.load_options(argv)
-    #pygame.display.init()
-    #pygame.font.init()
 
 
     hooks = [
@@ -113,7 +109,6 @@ def main(argv=None):
         'nodoublepass': 0,
         'fewmoves': 0,
         'error': 0,
-        'notaga': 0,
     }
     for filename in find_games(utils.datadirs('games')):
         log.debug("Loading game %s", filename)
@@ -139,7 +134,7 @@ def main(argv=None):
                         skip['noend'] += 1
                         return
                     result = float(result)
-            except (KeyError,    # No 'RE'
+            except (KeyError,    # No 'RE'sult
                     IndexError,  # No '+', might be 'V[oid]', '?', or malformed
                     ValueError,  # A comment in result
                     ):
@@ -187,21 +182,9 @@ def main(argv=None):
             skip['fewmoves'] += 1
             continue
 
-        #if not (plays[-2][1], plays[-1][1]) == (None, None):
-        #    log.warn("Ignoring game %s: does not end in double-pass: %s", filename, plays[-2:])
-        #    skip['nodoublepass'] += 1
-        #    continue
-
-#         if not root.get("RU") == "AGA":
-#             skip['notaga'] += 1
-#             continue
-
         # Valid game
         games += 1
         discard = False
-
-        #game = gogame.GoGame(game, )
-        #continue
 
         for hook in hooks:
             hook.gamestart(game, game.initial, chart=chart)
@@ -230,5 +213,4 @@ def main(argv=None):
     log.info("Ignored games: %r", skip)
     log.info("%d files loaded, %d games processed (%.01f%%)", files, games, 100. * games / files)
 
-    pygame.quit()
     g.save_options()
