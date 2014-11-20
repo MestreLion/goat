@@ -33,11 +33,13 @@ APPNAME = 'goat'
 BOARD_SIZE = 19
 
 # Paths
-APPDIR    = os.path.abspath(os.path.dirname(__file__) or '.')
-DATADIR   = os.path.join(APPDIR, 'data')
-USERDIR   = xdg.BaseDirectory.save_data_path(APPNAME)
-CONFIGDIR = xdg.BaseDirectory.save_config_path(APPNAME)
-CACHEDIR  = os.path.join(xdg.BaseDirectory.xdg_cache_home, APPNAME)
+APPDIR     = os.path.abspath(os.path.dirname(__file__) or '.')
+DATADIR    = os.path.join(APPDIR, 'data')
+USERDIR    = xdg.BaseDirectory.save_data_path(APPNAME)
+LIBRARYDIR = os.path.join(USERDIR, 'library')
+RESULTSDIR = os.path.join(os.path.expanduser("~"), APPNAME)
+CONFIGDIR  = xdg.BaseDirectory.save_config_path(APPNAME)
+CACHEDIR   = os.path.join(xdg.BaseDirectory.xdg_cache_home, APPNAME)
 WINDOWFILE = os.path.join(CONFIGDIR, 'window.json')
 
 # Options

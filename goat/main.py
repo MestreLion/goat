@@ -17,61 +17,21 @@
 
 '''Main module and entry point'''
 
-import os
 import logging
-import zipfile
-import tarfile
+import argparse
+import sys
+import os.path
+import ConfigParser
+import shutil
+import time
 
 import globals as g
-import utils
 import calcs
 import gogame
+import library
 
 
 log = logging.getLogger(__name__)
-
-
-class CustomError(Exception):
-    pass
-
-
-def find_games(paths):
-
-    def extract(filepath):
-        basename = os.path.basename(filepath)
-        path = os.path.join(g.CACHEDIR, basename)
-
-        if os.path.exists(path):
-            return path
-
-        driver = None
-        if   zipfile.is_zipfile(filepath): driver = zipfile.ZipFile
-        elif tarfile.is_tarfile(filepath): driver = tarfile.open
-
-        if not driver:
-            raise CustomError("Invalid archive format")
-
-        log.debug("Extracting %s to %s", os.path.basename(filepath), path)
-        archive = driver(filepath, 'r')
-        archive.extractall(path)
-        return path
-
-    for path in paths:
-        log.info("Searching for games in %s", path)
-
-        for root, dirs, files in os.walk(path):
-            for name in files:
-                filepath = os.path.join(root, name)
-                ext = os.path.splitext(name)[1][1:].lower()
-
-                if ext == "sgf":
-                    yield filepath
-
-                elif ext in ['zip', 'gz', 'bz2']:
-                    try:
-                        dirs.append(extract(filepath))
-                    except CustomError as e:
-                        log.warn("Error extracting %s: %s", filepath, e)
 
 
 def main(argv=None):
@@ -79,110 +39,89 @@ def main(argv=None):
         <args> is a list of command line arguments, defaults to sys.argv[1:]
     '''
 
+    configbasename = "%s.conf" % g.APPNAME
+    configfilename = os.path.join(g.CONFIGDIR, configbasename)
+    configtemplate = os.path.join(g.DATADIR,   configbasename)
+
+    if not os.path.exists(configfilename):
+        shutil.copyfile(configtemplate, configfilename)
+
+    config = ConfigParser.SafeConfigParser()
+    config.readfp(open(configtemplate))
+    config.read(configfilename)
+
+    board_size = config.getint('general', 'board_size')
+
+    parser = argparse.ArgumentParser(description="Go Analysis Tool")
+
+    parser.add_argument('--quiet', '-q', dest='loglevel', action="store_const", const=logging.WARNING, default=logging.INFO,
+                        help="Suppress informative messages and summary statistics")
+
+    parser.add_argument('--debug', '-d', dest='loglevel', action="store_const", const=logging.DEBUG,
+                        help="Enable debugging mode")
+
+    subparsers = parser.add_subparsers(dest="command")
+
+    subparser = subparsers.add_parser('import')
+
+    subparser.add_argument('--board-size', '-b', dest='board_size', default=board_size, type=int,
+                           help="Board size. Default: %d" % board_size)
+
+    subparser.add_argument('--games', '-g', dest='games', default=0, type=int, metavar="NUM",
+                           help="Import games until library has at least NUM games. 0 for no library size limit.")
+
+    subparser.add_argument(dest='sources', nargs="+",metavar="SOURCEDIR",
+                           help="Paths containing game sources to import to Library. "
+                                "Sources are SGF files or archives in ZIP and TAR.{BZ2,GZ} format")
+
+    subparser = subparsers.add_parser('compute')
+
+    subparser.add_argument('--games', '-g', dest='games', default=0, type=int, metavar="NUM",
+                           help="Compute at most NUM games from library. 0 for all games in library.")
+
+
+
+    if argv is None:
+        argv = sys.argv[1:]
+    g.options = parser.parse_args(argv)
+    g.options.debug = g.options.loglevel==logging.DEBUG
+
     logging.basicConfig(
         format="[%(levelname)-8s] %(asctime)s %(module)s: %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
-        level=logging.INFO
+        level=g.options.loglevel
     )
 
-    for cachedir in ['archives', 'boards', 'hooks']:
-        utils.safemakedirs(os.path.join(g.CACHEDIR, cachedir))
+    start = time.time()  # Wall time
+    log.info("Options: %s", g.options)
 
-    g.load_options(argv)
+    if g.options.command == "import":
+        library.import_sources()
 
+    elif g.options.command == "compute":
+        compute()
+
+    log.info("Finished in %s", time.strftime('%H:%M:%S', time.gmtime(time.time()-start)))
+
+
+def compute():
 
     hooks = [
 #        calcs.StonesPerSquare(g.BOARD_SIZE),
 #        calcs.LibertiesPerMove(g.BOARD_SIZE),
 #        calcs.Territories(g.BOARD_SIZE),
 #        calcs.FractalDimension(g.BOARD_SIZE),
-        calcs.MoveHistogram(),
+#        calcs.MoveHistogram(),
 #        calcs.TimeLine(g.BOARD_SIZE)
     ]
 
     games = 0
-    files = 0
-    skip = {
-        'noend': 0,
-        'nopro': 0,
-        'handicap': 0,
-        'nodoublepass': 0,
-        'fewmoves': 0,
-        'error': 0,
-    }
-    for filename in find_games(utils.datadirs('games')):
-        log.debug("Loading game %s", filename)
-        files += 1
-        try:
-            game = gogame.GoGame.from_sgf(filename)
-        except gogame.GoGameError as e:
-            log.error("Ignoring game %s: %s", filename, e)
-            skip['error'] += 1
-            continue
 
-        root = game.sgfgame.get_root()
-
-        if files % 1000 == 0:
-            log.info("Files processed: %d", files)
-
-        def validate():
-            try:
-                result = root.get("RE").split('+')[1].lower()
-                if result:
-                    if result[0] in ['r', 't', 'f']:
-                        # Resign, Timeout, Forfeit
-                        skip['noend'] += 1
-                        return
-                    result = float(result)
-            except (KeyError,    # No 'RE'sult
-                    IndexError,  # No '+', might be 'V[oid]', '?', or malformed
-                    ValueError,  # A comment in result
-                    ):
-                skip['noend'] += 1
-                return
-
-            try:
-                for rank in [root.get("BR"), root.get("WR")]:
-                    level, grade = int(rank[:-1]), rank[-1]
-                    if grade not in ['d', 'p'] or (grade == 'd' and level < 6):
-                        skip['nopro'] += 1
-                        return
-            except (KeyError, ValueError):
-                skip['nopro'] += 1
-                return
-
-            if root.has_property("HA"):
-                skip['handicap'] += 1
-                return
-
-            if not game.size == g.BOARD_SIZE:
-                log.warn("Ignoring game %s: board size is not %d: %d",
-                         filename, g.BOARD_SIZE, game.size)
-                return
-
-            return True
-
-        if not validate():
-            continue
+    for filename in library.walk():
 
         chart = False # games % 10 == 0
-
-
-        try:
-            game.get_setup_and_moves()
-        except gogame.GoGameError as e:
-            log.error("Ignoring game %s: %s", filename, e)
-            skip['error'] += 1
-            continue
-
-        # Sanity checks:
-
-        if len(game.plays) <= 50:
-            log.warn("Ignoring game %s: only %d moves", filename, len(game.plays))
-            skip['fewmoves'] += 1
-            continue
-
-        # Valid game
+        game = gogame.GoGame.from_sgf(filename)
+        game.load_moves()
         games += 1
         discard = False
 
@@ -196,7 +135,6 @@ def main(argv=None):
                     hook.move(game, board, move)
         except Exception as e:
             log.error("Ignoring game %s: %s", filename, e)
-            skip['error'] += 1
             games -= 1
             board = move = None
             discard = True
@@ -204,13 +142,8 @@ def main(argv=None):
         for hook in hooks:
             hook.gameover(game, board, chart=chart, discard=discard)
 
-        if g.options.games and games >= g.options.games:
-            break
+        if games % 1000 == 0:
+            log.info("Games processed: %d", games)
 
     for hook in hooks:
         hook.end()
-
-    log.info("Ignored games: %r", skip)
-    log.info("%d files loaded, %d games processed (%.01f%%)", files, games, 100. * games / files)
-
-    g.save_options()

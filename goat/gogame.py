@@ -74,10 +74,11 @@ class GoGame(object):
         self.plays = []
 
 
-    def get_setup_and_moves(self):
+    def load_moves(self):
         try:
             self.sgfboard, self.sgfplays = gomill.sgf_moves.get_setup_and_moves(self.sgfgame)
             self.plays = self.sgfplays
+            self.id = self._gameid(self.sgfplays)
         except ValueError as e:
             raise GoGameError(e)
 
@@ -106,10 +107,6 @@ class GoGame(object):
 #                         raise
 #                 self.plays.append(((color, move), Board(self.size, sgfboard.copy())))
 
-
-
-
-
     def _gameid(self, plays):
         id = ""
         moves = len(plays)
@@ -117,7 +114,7 @@ class GoGame(object):
             if move <= moves:
                 id += gomill.sgf_properties.serialise_go_point(plays[move-1][1], self.size)
             else:
-                id += "??"
+                id += "--"
         return id
 
 
