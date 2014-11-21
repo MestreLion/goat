@@ -20,7 +20,7 @@
 import logging
 import argparse
 import sys
-import os.path
+import os
 import ConfigParser
 import shutil
 import time
@@ -31,9 +31,30 @@ import globals as g
 import calcs
 import gogame
 import library
+import utils
 
 
 log = logging.getLogger(__name__)
+
+
+def setup_log():
+    logger = logging.getLogger(__package__)
+    logger.setLevel(logging.DEBUG)  # must be the lowest
+
+    sh = logging.StreamHandler()
+    sh.setLevel(g.options.loglevel)
+
+    resultdir = os.path.join(g.RESULTSDIR, "results_%s" % time.strftime('%Y-%m-%d_%H.%M.%S'))
+    utils.safemakedirs(resultdir)
+    fh = logging.FileHandler(os.path.join(resultdir, "results.log"))
+    fh.setLevel(logging.DEBUG)
+
+    fmt = logging.Formatter("[%(levelname)-8s] %(asctime)s %(module)s: %(message)s", "%Y-%m-%d %H:%M:%S")
+    fh.setFormatter(fmt)
+    sh.setFormatter(fmt)
+
+    logger.addHandler(fh)
+    logger.addHandler(sh)
 
 
 def main(argv=None):
@@ -76,27 +97,17 @@ def main(argv=None):
                            help="Paths containing game sources to import to Library. "
                                 "Sources are SGF files or archives in ZIP and TAR.{BZ2,GZ} format")
 
-    subparser = subparsers.add_parser('replay', help="Replay games from Library")
-
-    subparser.add_argument('--games', '-g', dest='games', default=0, type=int, metavar="NUM",
-                           help="Play at most NUM games. 0 for all games.")
-
     subparser = subparsers.add_parser('compute', help="Perform game analysis")
 
     subparser.add_argument('--games', '-g', dest='games', default=0, type=int, metavar="NUM",
                            help="Compute at most NUM games. 0 for all games.")
-
 
     if argv is None:
         argv = sys.argv[1:]
     g.options = parser.parse_args(argv)
     g.options.debug = g.options.loglevel==logging.DEBUG
 
-    logging.basicConfig(
-        format="[%(levelname)-8s] %(asctime)s %(module)s: %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-        level=g.options.loglevel
-    )
+    setup_log()
 
     start = time.time()  # Wall time
     log.info("Options: %s", g.options)
@@ -104,25 +115,10 @@ def main(argv=None):
     if g.options.command == "import":
         library.import_sources()
 
-    elif g.options.command == "replay":
-        replay()
-
     elif g.options.command == "compute":
         compute()
 
     log.info("Finished in %s", time.strftime('%H:%M:%S', time.gmtime(time.time()-start)))
-
-
-def replay():
-    games = 0
-    log.info("Replaying games")
-    for filename in library.walk():
-        game = gogame.GoGame(filename)
-        log.info("Replaying game '%s'", game.description)
-        game.play()
-        games += 1
-        if games % 1000 == 0:
-            log.info("Games processed: %d", games)
 
 
 def compute():

@@ -114,7 +114,7 @@ class MoveHistogram(Hook):
         self.movespergame.sort()
         games = len(self.movespergame)
         binwidth = 1
-        bins = range(min(self.movespergame), max(self.movespergame) + binwidth, binwidth)
+        bins = range(min(self.movespergame), max(self.movespergame) + binwidth + 1, binwidth)
 
         chart = Chart()
         chart.ax.hist(self.movespergame, bins=bins, label="Histogram")
