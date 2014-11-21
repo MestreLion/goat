@@ -129,7 +129,6 @@ def import_sources():
 
     try:
         for files, filename in enumerate(filelist, 1):
-            log.debug("Processing file %s", filename)
             pbar.update(files)
 
             try:
@@ -170,7 +169,7 @@ def import_sources():
                 skip['error'] += 1
                 continue
 
-            log.debug("Importing as game %s", game.id)
+            log.debug("Importing '%s' as '%s'", filename, game.id)
             utils.safemakedirs(os.path.dirname(gamepath))
             shutil.copyfile(filename, gamepath)
 
