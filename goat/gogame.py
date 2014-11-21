@@ -19,6 +19,7 @@
 
 import os
 import logging
+import json
 
 # Pypi: gomill
 import gomill.sgf
@@ -26,6 +27,7 @@ import gomill.sgf_moves
 import gomill.sgf_properties
 
 import globals as g
+import utils
 
 
 log = logging.getLogger(__name__)
@@ -81,7 +83,7 @@ class GoGame(object):
     def setup(self):
         try:
             self.sgfboard, self.sgfplays = gomill.sgf_moves.get_setup_and_moves(self.sgfgame)
-            self.initialboard = Board(self.size, self.sgfboard.copy())
+            self.initialboard = Board(self.size, self.sgfboard.copy().board)
             self.id = self._gameid(self.sgfplays, self.size)
             self.description = "%s(%s) vs %s(%s) %s %s" % (self.header.get("PB"),
                                                            self.header.get("BR"),
@@ -93,13 +95,32 @@ class GoGame(object):
             raise GoGameError(e)
 
     def play(self):
-        del self.plays[:]
         if not self.id:
             self.setup()
+
+        del self.plays[:]
         boardfile = os.path.join(g.USERDIR, 'boards', self.id[:2], "%s.json" % self.id)
-        if not os.path.exists(boardfile):
+
+        try:
+            with open(boardfile, 'r') as fp:
+                # id, board size, description, play size, initial board, play list
+                _, size, _, _, initialboard, playlist = json.load(fp)
+
+            self.initialboard = Board.from_ascii(size, initialboard)
+
+            # play index, move, ascii board
+            for _, move, asciiboard in playlist:
+                board = Board.from_ascii(size, asciiboard)
+                color, coord = move
+                row, col = coord
+                self.plays.append(((color, (row, col)), board))
+
+        except IOError:
+            # Play the SGF game
+            jsonplays = []
             sgfboard = self.sgfboard.copy()
-            for i, move in enumerate(self.sgfplays):
+
+            for m, move in enumerate(self.sgfplays, 1):
                 color, coord = move
                 if coord is not None:
                     row, col = coord
@@ -107,19 +128,41 @@ class GoGame(object):
                         sgfboard.play(row, col, color)
                     except Exception:
                         raise GoGameError("Invalid move #%d: %s[%s]" % (
-                            i+1,
+                            m,
                             color.upper(),
                             gomill.sgf_properties.serialise_go_point(coord, self.size)))
-                board = sgfboard.copy()  # Board(self.size, sgfboard.copy())
+
+                board = Board(self.size, sgfboard.copy().board)
                 self.plays.append((move, board))
+                jsonplays.append('[%d, ["%s", %r], %s]' % (m,
+                                                          color,
+                                                          [row, col],
+                                                          board.dumpjson()))
+
+            # Save the boards to JSON
+            utils.safemakedirs(os.path.dirname(boardfile))
+            with open(boardfile, 'w') as fp:
+                fp.write('["%s", %d, "%s", %d, %s, [\n%s\n]]\n' % (
+                   self.id,
+                   self.size,
+                   self.description,
+                   len(self.plays),
+                   self.initialboard.dumpjson(),
+                   ",\n".join(jsonplays)))
 
 
 class Board(object):
 
-    _ascii = {
+    _to_ascii = {
         None  : " ",
-        'b'   : "#",
-        'w'   : "o",
+        BLACK : "#",
+        WHITE : "O",
+    }
+
+    _from_ascii = {
+        " "   : None,
+        "#"   : BLACK,
+        "O"   : WHITE,
     }
 
     _mapping = {
@@ -128,9 +171,22 @@ class Board(object):
         'w'   : WHITE,
     }
 
-    def __init__(self, size, sgfboard=None):
+    @classmethod
+    def from_ascii(cls, size, asciiboard):
+        board = []
+        for row in reversed(asciiboard):
+            board.append([cls._from_ascii[col] for col in row])
+        return cls(size, board)
+
+    def __init__(self, size=0, board=None):
         self.size = size
-        self.board = sgfboard.board
+
+        if board is None:
+            self.board = []
+            for _ in range(self.size):
+                self.board.append([None] * self.size)
+        else:
+            self.board = board
 
 #         cols = [None] * self.size
 #         for _ in xrange(self.size):
@@ -147,11 +203,14 @@ class Board(object):
             for col in xrange(self.size):
                 yield self.board[row][col]
 
-    def ascii(self):
-        lines = []
+    def dumpjson(self, indent=0):
+        spc = indent * " "
+        sep = '",\n%s"' % spc
+        return '[\n%s"%s"\n]' % (spc, sep.join(self.asciilines()))
+
+    def asciilines(self):
         for row in xrange(self.size - 1, -1, -1):
             line = ""
             for col in xrange(self.size):
-                line += self._ascii[self.board[row][col]]
-            lines.append(line)
-        return "\n".join(lines)
+                line += self._to_ascii[self.board[row][col]]
+            yield line
