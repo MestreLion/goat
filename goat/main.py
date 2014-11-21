@@ -60,12 +60,12 @@ def main(argv=None):
     parser.add_argument('--debug', '-d', dest='loglevel', action="store_const", const=logging.DEBUG,
                         help="Enable debugging mode")
 
+    parser.add_argument('--board-size', '-b', dest='board_size', default=board_size, type=int,
+                           help="Board size. Default: %d" % board_size)
+
     subparsers = parser.add_subparsers(dest="command")
 
-    subparser = subparsers.add_parser('import')
-
-    subparser.add_argument('--board-size', '-b', dest='board_size', default=board_size, type=int,
-                           help="Board size. Default: %d" % board_size)
+    subparser = subparsers.add_parser('import', help="Import games from sources to Library")
 
     subparser.add_argument('--games', '-g', dest='games', default=0, type=int, metavar="NUM",
                            help="Import games until library has at least NUM games. 0 for no library size limit.")
@@ -74,11 +74,15 @@ def main(argv=None):
                            help="Paths containing game sources to import to Library. "
                                 "Sources are SGF files or archives in ZIP and TAR.{BZ2,GZ} format")
 
-    subparser = subparsers.add_parser('compute')
+    subparser = subparsers.add_parser('replay', help="Replay games from Library")
 
     subparser.add_argument('--games', '-g', dest='games', default=0, type=int, metavar="NUM",
-                           help="Compute at most NUM games from library. 0 for all games in library.")
+                           help="Play at most NUM games. 0 for all games.")
 
+    subparser = subparsers.add_parser('compute', help="Perform game analysis")
+
+    subparser.add_argument('--games', '-g', dest='games', default=0, type=int, metavar="NUM",
+                           help="Compute at most NUM games. 0 for all games.")
 
 
     if argv is None:
@@ -98,21 +102,36 @@ def main(argv=None):
     if g.options.command == "import":
         library.import_sources()
 
+    elif g.options.command == "replay":
+        replay()
+
     elif g.options.command == "compute":
         compute()
 
     log.info("Finished in %s", time.strftime('%H:%M:%S', time.gmtime(time.time()-start)))
 
 
+def replay():
+    games = 0
+    log.info("Replaying games")
+    for filename in library.walk():
+        game = gogame.GoGame(filename)
+        log.info("Replaying game '%s'", game.description)
+        game.play()
+        games += 1
+        if games % 1000 == 0:
+            log.info("Games processed: %d", games)
+
+
 def compute():
 
     hooks = [
-#        calcs.StonesPerSquare(g.BOARD_SIZE),
-#        calcs.LibertiesPerMove(g.BOARD_SIZE),
-#        calcs.Territories(g.BOARD_SIZE),
-#        calcs.FractalDimension(g.BOARD_SIZE),
-#        calcs.MoveHistogram(),
-#        calcs.TimeLine(g.BOARD_SIZE)
+#        calcs.StonesPerSquare(g.options.board_size),
+#        calcs.LibertiesPerMove(g.options.board_size),
+#        calcs.Territories(g.options.board_size),
+#        calcs.FractalDimension(g.options.board_size),
+#        calcs.TimeLine(g.options.board_size)
+        calcs.MoveHistogram(g.options.board_size),
     ]
 
     games = 0
@@ -120,24 +139,16 @@ def compute():
     for filename in library.walk():
 
         chart = False # games % 10 == 0
-        game = gogame.GoGame.from_sgf(filename)
-        game.load_moves()
+        game = gogame.GoGame(filename)
         games += 1
         discard = False
 
         for hook in hooks:
-            hook.gamestart(game, game.initial, chart=chart)
+            hook.gamestart(game, game.initialboard, chart=chart)
 
-        # @@ try/except temporary until oldplays() is replaced
-        try:
-            for move, board in game.oldplays():
-                for hook in hooks:
-                    hook.move(game, board, move)
-        except Exception as e:
-            log.error("Ignoring game %s: %s", filename, e)
-            games -= 1
-            board = move = None
-            discard = True
+        for move, board in game.plays:
+            for hook in hooks:
+                hook.move(game, board, move)
 
         for hook in hooks:
             hook.gameover(game, board, chart=chart, discard=discard)

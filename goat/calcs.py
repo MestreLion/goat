@@ -24,7 +24,6 @@ import matplotlib.pyplot as plt  # Debian: python-matplotlib
 import numpy  # Debian: python-numpy
 
 import globals as g
-import utils
 import ascii
 import gogame
 
@@ -89,7 +88,7 @@ class Hook(object):
 
 
 class MoveHistogram(Hook):
-    def __init__(self):
+    def __init__(self, _):
         self.movespergame = []
         self.moves = 0
         self.games = 0
@@ -348,7 +347,7 @@ class StonesPerSquare(Hook):
                 sum = 0
                 min = g.BOARD_SIZE**2 + 1
                 max = -1
-                for i, game in enumerate(center.gamestones):
+                for _, game in enumerate(center.gamestones):
                     v = game[n]
                     sum += v
                     if v < min: min = v

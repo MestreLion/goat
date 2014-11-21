@@ -18,7 +18,6 @@
 '''Go Game, Board, Moves classes wrappers'''
 
 import os
-import sys
 import logging
 
 # Pypi: gomill
@@ -27,7 +26,6 @@ import gomill.sgf_moves
 import gomill.sgf_properties
 
 import globals as g
-import utils
 
 
 log = logging.getLogger(__name__)
@@ -35,87 +33,85 @@ log = logging.getLogger(__name__)
 BLACK = 'b'
 WHITE = 'w'
 
+
 class GoGameError(Exception):
     pass
 
 
 class GoGame(object):
-
-    @classmethod
-    def from_sgf(cls, filename):
-        with open(filename, 'r') as fp:
-            try:
-                sgfgame = gomill.sgf.Sgf_game.from_string(fp.read())
-            except ValueError as e:
-                raise GoGameError(e)
-
-        gogame = GoGame()
-        gogame.sgfgame = sgfgame
-        gogame.sgffile = filename
-        gogame.size = gogame.sgfgame.get_size()
-        gogame.name = os.path.splitext(os.path.basename(filename))[0]
+    def __init__(self, sgffile, autosetup=True, autoplay=True):
+        self.sgffile = sgffile
+        self.sgfgame = self._sgfgame(self.sgffile)
+        self.header = self.sgfgame.get_root()
+        self.size = self.sgfgame.get_size()
 
         try:
-            gogame.winner = gogame.sgfgame.get_winner()
+            self.winner = self.sgfgame.get_winner()
         except ValueError as e:
             raise GoGameError("No winner: %s" % e)
 
-        return gogame
-
-    def __init__(self):
-        self.name = ""
-        self.sgfgame = None
-        self.sgffile = ""
+        self.initialboard = None
         self.sgfboard = None
         self.sgfplays = None
-        self.size = 0
         self.id = ""
-        self.initial = None
+        if autosetup:
+            self.setup()
+
         self.plays = []
+        if autoplay:
+            self.play()
 
+    def _sgfgame(self, sgffile):
+        with open(sgffile, 'r') as fp:
+            try:
+                return gomill.sgf.Sgf_game.from_string(fp.read())
+            except ValueError as e:
+                raise GoGameError(e)
 
-    def load_moves(self):
-        try:
-            self.sgfboard, self.sgfplays = gomill.sgf_moves.get_setup_and_moves(self.sgfgame)
-            self.plays = self.sgfplays
-            self.id = self._gameid(self.sgfplays)
-        except ValueError as e:
-            raise GoGameError(e)
-
-    def oldplays(self):
-        for color, move in self.sgfplays:
-            if move is not None:
-                row, col = move
-                try:
-                    self.sgfboard.play(row, col, color)
-                    yield (color, move), self.sgfboard
-                except Exception:
-                    raise
-
-        # @@ for later...
-#         self.initial = Board(self.size, sgfboard.copy())
-#         self.id = self._gameid(sgfplays)
-#
-#         gamefile = os.path.join(g.CACHEDIR, 'boards', "%s.json" % self.id)
-#         if not os.path.exists(gamefile):
-#             for color, move in sgfplays:
-#                 if move is not None:
-#                     row, col = move
-#                     try:
-#                         sgfboard.play(row, col, color)
-#                     except Exception as e:
-#                         raise
-#                 self.plays.append(((color, move), Board(self.size, sgfboard.copy())))
-
-    def _gameid(self, plays):
+    def _gameid(self, sgfplays, size):
         id = ""
-        moves = len(plays)
+        moves = len(sgfplays)
         for move in [20, 40, 60, 31, 51, 71]:
             if move <= moves:
-                id += gomill.sgf_properties.serialise_go_point(plays[move-1][1], self.size)
+                id += gomill.sgf_properties.serialise_go_point(sgfplays[move-1][1], size)
             else:
                 id += "--"
         return id
+
+    def setup(self):
+        try:
+            self.sgfboard, self.sgfplays = gomill.sgf_moves.get_setup_and_moves(self.sgfgame)
+            self.initialboard = Board(self.size, self.sgfboard.copy())
+            self.id = self._gameid(self.sgfplays, self.size)
+            self.description = "%s(%s) vs %s(%s) %s %s" % (self.header.get("PB"),
+                                                           self.header.get("BR"),
+                                                           self.header.get("PW"),
+                                                           self.header.get("WR"),
+                                                           self.header.get("RE"),
+                                                           self.header.get("DT"),)
+        except ValueError as e:
+            raise GoGameError(e)
+
+    def play(self):
+        del self.plays[:]
+        if not self.id:
+            self.setup()
+        boardfile = os.path.join(g.USERDIR, 'boards', self.id[:2], "%s.json" % self.id)
+        if not os.path.exists(boardfile):
+            sgfboard = self.sgfboard.copy()
+            for i, move in enumerate(self.sgfplays):
+                color, coord = move
+                if coord is not None:
+                    row, col = coord
+                    try:
+                        sgfboard.play(row, col, color)
+                    except Exception:
+                        raise GoGameError("Invalid move #%d: %s[%s]" % (
+                            i+1,
+                            color.upper(),
+                            gomill.sgf_properties.serialise_go_point(coord, self.size)))
+                board = sgfboard.copy()  # Board(self.size, sgfboard.copy())
+                self.plays.append((move, board))
 
 
 class Board(object):
@@ -132,9 +128,9 @@ class Board(object):
         'w'   : WHITE,
     }
 
-    def __init__(self, size, board=None):
+    def __init__(self, size, sgfboard=None):
         self.size = size
-        self.board = board.board
+        self.board = sgfboard.board
 
 #         cols = [None] * self.size
 #         for _ in xrange(self.size):

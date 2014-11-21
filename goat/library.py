@@ -23,6 +23,8 @@ import zipfile
 import tarfile
 import shutil
 
+import progressbar  # Debian: python-progressbar
+
 import globals as g
 import gogame
 import utils
@@ -96,76 +98,122 @@ def import_sources():
         'duplicate': 0,
     }
 
-    for filename in find_games(g.options.sources):
-        log.debug("Processing file %s", filename)
-        files += 1
+    library = [_ for _ in walk()]
+    librarysize = len(library)
+    if g.options.games and librarysize >= g.options.games:
+        log.info("Library already has %d games. No games imported", librarysize)
+        return
 
-        if files % 10000 == 0:
-            log.info("Files processed: %d", files)
+    filelist = [_ for _ in find_games(g.options.sources)]
+    listsize = len(filelist)
 
-        try:
-            game = gogame.GoGame.from_sgf(filename)
-        except gogame.GoGameError as e:
-            log.error("Ignoring game %s: %s", filename, e)
-            skip['error'] += 1
-            continue
+    class ImportedGameProgress(progressbar.ProgressBarWidget):
+        '''Custom Widget for ProgressBar to track imported games'''
+        def update(self, pbar):
+            return str(games)
 
-        # Header filters (that do not depend on setup or moves)
-        if not filter_game_header(game, skip):
-            continue
+    class LibraryProgress(progressbar.ProgressBarWidget):
+        '''Custom Widget for ProgressBar to track Library size'''
+        def update(self, pbar):
+            size = games + librarysize
+            return '%d of %d (%.01f%%)' % (size, g.options.games, 100. * size / g.options.games)
 
-        # Populate Game ID and moves
-        try:
-            game.load_moves()
-        except gogame.GoGameError as e:
-            log.error("Ignoring game %s: %s", filename, e)
-            skip['error'] += 1
-            continue
+    class LibraryTotalAndPercentageProgress(progressbar.ProgressBarWidget):
+        '''Custom Widget for ProgressBar to track Library size'''
+        def update(self, pbar):
+            return
 
-        # Duplicate game
-        gamepath = os.path.join(g.LIBRARYDIR, game.id[:2], "%s.sgf" % game.id)
-        if os.path.exists(gamepath):
-            skip['duplicate'] += 1
-            continue
+    pbar = progressbar.ProgressBar(widgets=[
+        ' ', progressbar.Percentage(),
+        ' File ', progressbar.SimpleProgress(),
+        ', ', ImportedGameProgress(), ' imported.',
+        ' Library: ', LibraryProgress(),
+        ' ', progressbar.Bar('.'),
+        ' ', progressbar.ETA(),
+        ' '], maxval=listsize).start()
 
-        # Few moves
-        if len(game.plays) <= 50:
-            log.warn("Ignoring game %s: only %d moves", filename, len(game.plays))
-            skip['fewmoves'] += 1
-            continue
+    try:
+        for filename in filelist:
+            log.debug("Processing file %s", filename)
+            files += 1
+            pbar.update(files)
 
-        log.debug("Importing as game %s", game.id)
-        utils.safemakedirs(os.path.dirname(gamepath))
-        shutil.copyfile(filename, gamepath)
+            if files % 10000 == 0:
+                log.info("Files processed: %d", files)
 
-        games += 1
-        if g.options.games and games >= g.options.games:
-            break
+            try:
+                game = gogame.GoGame(filename, autosetup=False, autoplay=False)
+            except gogame.GoGameError as e:
+                log.error("Game %s: %s", filename, e)
+                skip['error'] += 1
+                continue
 
-        if games % 1000 == 0:
-            log.info("Games imported: %d (%.01f%%)", games, 100. * games / files)
+            # Header filters (that do not depend on setup or plays)
+            if not filter_game_header(game, skip):
+                continue
 
+            # Populate Game ID and moves
+            try:
+                game.setup()
+            except gogame.GoGameError as e:
+                log.error("Game %s: %s", filename, e)
+                skip['error'] += 1
+                continue
+
+            # Duplicate game
+            gamepath = os.path.join(g.LIBRARYDIR, game.id[:2], "%s.sgf" % game.id)
+            if os.path.exists(gamepath):
+                skip['duplicate'] += 1
+                continue
+
+            # Few moves
+            if len(game.sgfplays) < 50:
+                log.warn("Game %s: only %d moves", filename, len(game.sgfplays))
+                skip['fewmoves'] += 1
+                continue
+
+            try:
+                game.play()
+            except gogame.GoGameError as e:
+                log.error("Game %s: %s", filename, e)
+                skip['error'] += 1
+                continue
+
+            log.debug("Importing as game %s", game.id)
+            utils.safemakedirs(os.path.dirname(gamepath))
+            shutil.copyfile(filename, gamepath)
+
+            games += 1
+            if g.options.games and games + librarysize >= g.options.games:
+                break
+
+            if games % 1000 == 0:
+                log.info("Games imported: %d (%.01f%%)", games, 100. * games / files)
+
+    except KeyboardInterrupt:
+        log.warn("Import aborted by user")
+
+    pbar.finish()
     log.info("Files processed: %d", files)
     log.info("Ignored games: %r", skip)
     log.info("Games imported: %d (%.01f%%)", games, 100. * games / files)
+    log.info("Games in Library: %d", games + librarysize)
 
 
 def filter_game_header(game, skip):
-    root = game.sgfgame.get_root()
-
     # Rules
-    if not root.has_property("RU") or root.get("RU").lower() != "japanese":
+    if not game.header.has_property("RU") or game.header.get("RU").lower() != "japanese":
         skip['rules'] += 1
         return
 
     # Handicap
-    if root.has_property("HA"):
+    if game.header.has_property("HA"):
         skip['handicap'] += 1
         return
 
     # Result
     try:
-        result = root.get("RE").split('+')[1].lower()
+        result = game.header.get("RE").split('+')[1].lower()
         if result:
             if result[0] in ['r', 't', 'f']:
                 # Resign, Timeout, Forfeit
@@ -181,7 +229,7 @@ def filter_game_header(game, skip):
 
     # Player Rank
     try:
-        for rank in [root.get("BR"), root.get("WR")]:
+        for rank in [game.header.get("BR"), game.header.get("WR")]:
             level, grade = int(rank[:-1]), rank[-1]
             if grade not in ['d', 'p'] or (grade == 'd' and level < 6):
                 skip['nopro'] += 1
