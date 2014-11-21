@@ -59,7 +59,7 @@ def extract(filepath, destdir=""):
 def find_games(paths):
     '''Search for SGF files and archives in <paths>'''
 
-    archivecachedir = os.path.join(g.CACHEDIR, 'sources')
+    archivecachedir = os.path.join(g.USERDIR, 'sources')
     utils.safemakedirs(archivecachedir)
 
     for path in paths:
@@ -94,6 +94,7 @@ def import_sources():
         'handicap': 0,
         'fewmoves': 0,
         'rules': 0,
+        'date': 0,
         'error': 0,
         'duplicate': 0,
     }
@@ -104,7 +105,7 @@ def import_sources():
         log.info("Library already has %d games. No games imported", librarysize)
         return
 
-    filelist = [_ for _ in find_games(g.options.sources)]
+    filelist = list(find_games(g.options.sources))
     listsize = len(filelist)
 
     class ImportedGameProgress(progressbar.ProgressBarWidget):
@@ -169,7 +170,7 @@ def import_sources():
                 skip['error'] += 1
                 continue
 
-            log.debug("Importing '%s' as '%s'", filename, game.id)
+            log.debug("Importing '%s' from %s", game.id, filename)
             utils.safemakedirs(os.path.dirname(gamepath))
             shutil.copyfile(filename, gamepath)
 
@@ -223,6 +224,11 @@ def filter_game_header(game, skip):
                 return
     except (KeyError, ValueError):
         skip['rank'] += 1
+        return
+
+    # Date
+    if not game.header.has_property("DT"):
+        skip['date'] += 1
         return
 
     # Board Size

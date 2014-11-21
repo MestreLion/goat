@@ -29,7 +29,6 @@ import progressbar  # Debian: python-progressbar
 
 import globals as g
 import calcs
-import gogame
 import library
 import utils
 
@@ -44,9 +43,8 @@ def setup_log():
     sh = logging.StreamHandler()
     sh.setLevel(g.options.loglevel)
 
-    resultdir = os.path.join(g.RESULTSDIR, "results_%s" % time.strftime('%Y-%m-%d_%H.%M.%S'))
-    utils.safemakedirs(resultdir)
-    fh = logging.FileHandler(os.path.join(resultdir, "results.log"))
+    utils.safemakedirs(g.RESULTSDIR)
+    fh = logging.FileHandler(os.path.join(g.RESULTSDIR, "results.log"))
     fh.setLevel(logging.DEBUG)
 
     fmt = logging.Formatter("[%(levelname)-8s] %(asctime)s %(module)s: %(message)s", "%Y-%m-%d %H:%M:%S")
@@ -132,17 +130,15 @@ def compute():
         calcs.MoveHistogram(g.options.board_size),
     ]
 
-    gamelist = list(library.games(g.options.games))
-
     pbar = progressbar.ProgressBar(widgets=[
         ' ', progressbar.Percentage(),
         ' Game ', progressbar.SimpleProgress(),
         ' ', progressbar.Bar('.'),
         ' ', progressbar.ETA(),
-        ' '], maxval=len(gamelist)).start()
+        ' '], maxval=g.options.games or len(list(library.walk()))).start()
 
     try:
-        for games, game in enumerate(gamelist, 1):
+        for games, game in enumerate(library.games(g.options.games), 1):
             chart = False # games % 10 == 0
             discard = False
 

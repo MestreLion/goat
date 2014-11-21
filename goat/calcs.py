@@ -66,7 +66,7 @@ class Chart(object):
 
     def save(self, name):
         for ext in ['png', 'eps', 'svg']:
-            path = os.path.join(g.CACHEDIR, "%s.%s" % (name, ext))
+            path = os.path.join(g.RESULTSDIR, "%s.%s" % (name, ext))
             self.fig.savefig(path, dpi=240)
         #launchfile(path)
 
