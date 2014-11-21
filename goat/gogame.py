@@ -112,8 +112,9 @@ class GoGame(object):
             for _, move, asciiboard in playlist:
                 board = Board.from_ascii(size, asciiboard)
                 color, coord = move
-                row, col = coord
-                self.plays.append(((color, (row, col)), board))
+                if coord is not None:
+                    coord = tuple(coord)
+                self.plays.append(((color, coord), board))
 
         except IOError:
             # Play the SGF game
@@ -134,9 +135,9 @@ class GoGame(object):
 
                 board = Board(self.size, sgfboard.copy().board)
                 self.plays.append((move, board))
-                jsonplays.append('[%d, ["%s", %r], %s]' % (m,
+                jsonplays.append('[%d, ["%s", %s], %s]' % (m,
                                                           color,
-                                                          [row, col],
+                                                          'null' if coord is None else list(coord),
                                                           board.dumpjson()))
 
             # Save the boards to JSON
