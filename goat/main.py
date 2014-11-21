@@ -25,6 +25,8 @@ import ConfigParser
 import shutil
 import time
 
+import progressbar  # Debian: python-progressbar
+
 import globals as g
 import calcs
 import gogame
@@ -134,27 +136,35 @@ def compute():
         calcs.MoveHistogram(g.options.board_size),
     ]
 
-    games = 0
+    gamelist = list(library.games(g.options.games))
 
-    for filename in library.walk():
+    pbar = progressbar.ProgressBar(widgets=[
+        ' ', progressbar.Percentage(),
+        ' Game ', progressbar.SimpleProgress(),
+        ' ', progressbar.Bar('.'),
+        ' ', progressbar.ETA(),
+        ' '], maxval=len(gamelist)).start()
 
-        chart = False # games % 10 == 0
-        game = gogame.GoGame(filename)
-        games += 1
-        discard = False
+    try:
+        for games, game in enumerate(gamelist, 1):
+            chart = False # games % 10 == 0
+            discard = False
 
-        for hook in hooks:
-            hook.gamestart(game, game.initialboard, chart=chart)
-
-        for move, board in game.plays:
             for hook in hooks:
-                hook.move(game, board, move)
+                hook.gamestart(game, game.initialboard, chart=chart)
 
-        for hook in hooks:
-            hook.gameover(game, board, chart=chart, discard=discard)
+            for move, board in game.plays:
+                for hook in hooks:
+                    hook.move(game, board, move)
 
-        if games % 1000 == 0:
-            log.info("Games processed: %d", games)
+            for hook in hooks:
+                hook.gameover(game, board, chart=chart, discard=discard)
 
+            pbar.update(games)
+
+    except KeyboardInterrupt:
+        log.warn("Aborted by user")
+
+    pbar.finish()
     for hook in hooks:
         hook.end()

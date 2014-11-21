@@ -23,7 +23,7 @@ import zipfile
 import tarfile
 import shutil
 
-import progressbar  # Debian: python-progressbar
+import progressbar
 
 import globals as g
 import gogame
@@ -118,11 +118,6 @@ def import_sources():
             size = games + librarysize
             return '%d of %d (%.01f%%)' % (size, g.options.games, 100. * size / g.options.games)
 
-    class LibraryTotalAndPercentageProgress(progressbar.ProgressBarWidget):
-        '''Custom Widget for ProgressBar to track Library size'''
-        def update(self, pbar):
-            return
-
     pbar = progressbar.ProgressBar(widgets=[
         ' ', progressbar.Percentage(),
         ' File ', progressbar.SimpleProgress(),
@@ -133,13 +128,9 @@ def import_sources():
         ' '], maxval=listsize).start()
 
     try:
-        for filename in filelist:
+        for files, filename in enumerate(filelist, 1):
             log.debug("Processing file %s", filename)
-            files += 1
             pbar.update(files)
-
-            if files % 10000 == 0:
-                log.info("Files processed: %d", files)
 
             try:
                 game = gogame.GoGame(filename, autosetup=False, autoplay=False)
@@ -186,9 +177,6 @@ def import_sources():
             games += 1
             if g.options.games and games + librarysize >= g.options.games:
                 break
-
-            if games % 1000 == 0:
-                log.info("Games imported: %d (%.01f%%)", games, 100. * games / files)
 
     except KeyboardInterrupt:
         log.warn("Import aborted by user")
@@ -245,9 +233,17 @@ def filter_game_header(game, skip):
 
     return True
 
+
 def walk():
     for root, _, files in os.walk(g.LIBRARYDIR):
         for name in files:
             filepath = os.path.join(root, name)
             if os.path.splitext(name)[1][1:].lower() == "sgf":
                 yield filepath
+
+
+def games(maxgames = 0):
+    for i, filename in enumerate(walk(), 1):
+        yield gogame.GoGame(filename)
+        if maxgames and i >= maxgames:
+            break
