@@ -246,6 +246,17 @@ def walk():
             if os.path.splitext(name)[1][1:].lower() == "sgf":
                 yield filepath
 
+def gameids(maxgames=0):
+    for i, filename in enumerate(walk(), 1):
+        yield os.path.splitext(os.path.basename(filename))[0]
+        if maxgames and i >= maxgames:
+            break
+
+def gamefile(id):
+    return os.path.join(g.LIBRARYDIR, id[:2], "%s.sgf" % id)
+
+def game(id, autosetup=True, autoplay=False):
+    return gogame.GoGame(gamefile(id), autosetup=autosetup, autoplay=autoplay)
 
 def games(maxgames=0, autosetup=True, autoplay=False):
     for i, filename in enumerate(walk(), 1):

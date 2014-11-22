@@ -24,6 +24,7 @@ import os
 import ConfigParser
 import shutil
 import time
+import random
 
 import progressbar  # Debian: python-progressbar
 
@@ -130,27 +131,35 @@ def compute():
         calcs.MoveHistogram(g.options.board_size),
     ]
 
+    gameids = list(library.gameids(g.options.games))
+    totalgames = len(gameids)
+
     pbar = progressbar.ProgressBar(widgets=[
         ' ', progressbar.Percentage(),
         ' Game ', progressbar.SimpleProgress(),
         ' ', progressbar.Bar('.'),
         ' ', progressbar.ETA(),
-        ' '], maxval=g.options.games or len(list(library.walk()))).start()
+        ' '], maxval=totalgames).start()
 
     try:
-        for games, game in enumerate(library.games(g.options.games), 1):
-            chart = False # games % 10 == 0
-            discard = False
+        for games, id in enumerate(gameids, 1):
+            game = library.game(id)
+            chart = games % 5000 == 0
 
             for hook in hooks:
                 hook.gamestart(game, game.initialboard, chart=chart)
 
-            for move, board in game.plays:
+            board = None
+            for move, board in zip(game.moves, game.boards):
                 for hook in hooks:
                     hook.move(game, board, move)
 
             for hook in hooks:
-                hook.gameover(game, board, chart=chart, discard=discard)
+                hook.gameover(game, board, chart=chart)
+
+            if games % 5000 == 0:
+                for hook in hooks:
+                    hook.end()
 
             pbar.update(games)
 

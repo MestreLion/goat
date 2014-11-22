@@ -19,6 +19,7 @@
 
 import os
 import logging
+import json
 
 import matplotlib.pyplot as plt  # Debian: python-matplotlib
 import numpy  # Debian: python-numpy
@@ -26,6 +27,7 @@ import numpy  # Debian: python-numpy
 import globals as g
 import ascii
 import gogame
+import utils
 
 log = logging.getLogger(__name__)
 
@@ -75,63 +77,60 @@ class Chart(object):
 
 
 class Hook(object):
-    def __init__(self, size):
+    def __init__(self, size, outputdir, datadir):
         pass
     def gamestart(self, game, board, chart=False):
         pass
     def move(self, game, board, move):
         pass
-    def gameover(self, game, board, chart=False, discard=False):
+    def gameover(self, game, board, chart=False):
         pass
     def end(self):
         pass
 
 
 class MoveHistogram(Hook):
-    def __init__(self, _):
-        self.movespergame = []
-        self.moves = 0
-        self.games = 0
+    def __init__(self, size):
+        self.data = {}
 
-    def gamestart(self, game, board, chart=False):
-        self.moves = 0
-
-    def move(self, game, board, move):
-        self.moves += 1
-
-    def gameover(self, game, board, chart=False, discard=False):
-        if discard:
-            return
-
-        self.movespergame.append(self.moves)
-
-        self.games += 1
-        if self.games % 2000 == 0:
-            self.end()
+    def gameover(self, game, board, chart=False):
+        if not game.id:
+            game.setup()
+        moves = len(game.moves)
+        self.data[game.id] = moves
 
     def end(self):
-        log.info("Games processed: %d", self.games)
-        self.movespergame.sort()
-        games = len(self.movespergame)
+        moves = sorted(self.data.values())
+        games = len(moves)
+
+        datafile = os.path.join(g.USERDIR, 'hooks', self.__class__.__name__.lower(), 'data.json')
+        utils.safemakedirs(os.path.dirname(datafile))
+        with open(datafile, 'w') as fp:
+            json.dump(self.data, fp, sort_keys=True, separators=(',', ': '), indent=0)
+
+        resultsfile = os.path.join(g.RESULTSDIR, "move_histogram_%s.json" % games)
+        with open(resultsfile, 'w') as fp:
+            json.dump(moves, fp, separators=(',', ': '), indent=0)
+
         binwidth = 1
-        bins = range(min(self.movespergame), max(self.movespergame) + binwidth + 1, binwidth)
+        bins = range(min(moves), max(moves) + binwidth + 1, binwidth)
 
         chart = Chart()
-        chart.ax.hist(self.movespergame, bins=bins, label="Histogram")
+        chart.ax.hist(moves, bins=bins, label="Histogram")
         chart.set(xlabel="Moves", ylabel="Games of n moves", loc=2,
                   title="Moves per Game - Histogram of %d games\n"
                     "Min=%d, Avg=%d, Max=%d" % (
                     games,
-                    min(self.movespergame),
-                    int(sum(self.movespergame)/games),
-                    max(self.movespergame),
+                    min(moves),
+                    int(sum(moves)/games),
+                    max(moves),
                     ))
 
         survivors = []
         gamesleft = games
         i = 0
-        for m in xrange(max(self.movespergame) + 1):
-            while i < games and m == self.movespergame[i]:
+        for m in xrange(max(moves) + 1):
+            while i < games and m == moves[i]:
                 gamesleft -= 1
                 i += 1
             survivors.append(gamesleft)
