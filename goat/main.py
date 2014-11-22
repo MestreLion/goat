@@ -160,3 +160,5 @@ def compute():
     pbar.finish()
     for hook in hooks:
         hook.end()
+
+    log.info("Games processed: %d", games)

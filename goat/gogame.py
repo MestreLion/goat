@@ -32,6 +32,7 @@ import utils
 
 log = logging.getLogger(__name__)
 
+EMPTY = None
 BLACK = 'b'
 WHITE = 'w'
 
@@ -41,7 +42,28 @@ class GoGameError(Exception):
 
 
 class GoGame(object):
-    def __init__(self, sgffile, autosetup=True, autoplay=True):
+    '''Class representing a Go game
+        Attributes populated after loading the SGF file (when object is instantiated):
+        - sgffile: Full path to the SGF source file
+        - sgfgame: Gomill Sgf_game instance
+        - header: Root of sgfgame containing game headers
+        - size: Board size
+        - winner: color of game winner
+
+        Attributes populated after .setup():
+        - id: 12 char string uniquely identifying the game (letter coords of moves 20, 40, 60, 31, 51, 71)
+            may be passed to constructor
+        - description: String of player names and ranks, game result and date
+            requires all such headers to be present
+        - initialboard: Board instance of initial board layout. Empty if game has no handicap
+        - moves: List of all moves. Each move is a (color, (row, col)) tuple
+        - sgfboard: Gomill Board instance after initial setup and before first move
+
+        Attributes populated after .play()
+        - boards: List of boards
+
+    '''
+    def __init__(self, sgffile, id="", autosetup=True, autoplay=True):
         self.sgffile = sgffile
         self.sgfgame = self._sgfgame(self.sgffile)
         self.header = self.sgfgame.get_root()
@@ -52,14 +74,15 @@ class GoGame(object):
         except ValueError as e:
             raise GoGameError("No winner: %s" % e)
 
+        self.id = id
+        self.description = ""
         self.initialboard = None
+        self.moves = []
         self.sgfboard = None
-        self.sgfplays = None
-        self.id = ""
         if autosetup:
             self.setup()
 
-        self.plays = []
+        self.boards = []
         if autoplay:
             self.play()
 
@@ -70,21 +93,22 @@ class GoGame(object):
             except ValueError as e:
                 raise GoGameError(e)
 
-    def _gameid(self, sgfplays, size):
+    def _gameid(self, moves, size):
         id = ""
-        moves = len(sgfplays)
+        maxmoves = len(moves)
         for move in [20, 40, 60, 31, 51, 71]:
-            if move <= moves:
-                id += gomill.sgf_properties.serialise_go_point(sgfplays[move-1][1], size)
+            if move <= maxmoves:
+                id += gomill.sgf_properties.serialise_go_point(moves[move-1][1], size)
             else:
                 id += "--"
         return id
 
     def setup(self):
         try:
-            self.sgfboard, self.sgfplays = gomill.sgf_moves.get_setup_and_moves(self.sgfgame)
+            self.sgfboard, self.moves = gomill.sgf_moves.get_setup_and_moves(self.sgfgame)
             self.initialboard = Board(self.size, self.sgfboard.copy().board)
-            self.id = self._gameid(self.sgfplays, self.size)
+            if not self.id:
+                self.id = self._gameid(self.moves, self.size)
             self.description = "%s(%s) vs %s(%s) %s %s" % (self.header.get("PB"),
                                                            self.header.get("BR"),
                                                            self.header.get("PW"),
@@ -98,30 +122,25 @@ class GoGame(object):
         if not self.id:
             self.setup()
 
-        del self.plays[:]
         boardfile = os.path.join(g.USERDIR, 'boards', self.id[:2], "%s.json" % self.id)
 
         try:
             with open(boardfile, 'r') as fp:
-                # id, board size, description, play size, initial board, play list
-                _, size, _, _, initialboard, playlist = json.load(fp)
+                # id, board size, description, moves count, initial board, moves list
+                _, size, _, _, initialboard, moves = json.load(fp)
 
             self.initialboard = Board.from_ascii(size, initialboard)
 
             # play index, move, ascii board
-            for _, move, asciiboard in playlist:
-                board = Board.from_ascii(size, asciiboard)
-                color, coord = move
-                if coord is not None:
-                    coord = tuple(coord)
-                self.plays.append(((color, coord), board))
+            for _, _, asciiboard in moves:
+                self.boards.append(Board.from_ascii(size, asciiboard))
 
         except IOError:
             # Play the SGF game
             jsonplays = []
             sgfboard = self.sgfboard.copy()
 
-            for m, move in enumerate(self.sgfplays, 1):
+            for m, move in enumerate(self.moves, 1):
                 color, coord = move
                 if coord is not None:
                     row, col = coord
@@ -134,7 +153,7 @@ class GoGame(object):
                             gomill.sgf_properties.serialise_go_point(coord, self.size)))
 
                 board = Board(self.size, sgfboard.copy().board)
-                self.plays.append((move, board))
+                self.boards.append(board)
                 jsonplays.append('[%d, ["%s", %s], %s]' % (m,
                                                           color,
                                                           'null' if coord is None else list(coord),
@@ -147,7 +166,7 @@ class GoGame(object):
                    self.id,
                    self.size,
                    self.description,
-                   len(self.plays),
+                   len(self.moves),
                    self.initialboard.dumpjson(),
                    ",\n".join(jsonplays)))
 
@@ -155,21 +174,15 @@ class GoGame(object):
 class Board(object):
 
     _to_ascii = {
-        None  : " ",
+        EMPTY : " ",
         BLACK : "#",
         WHITE : "O",
     }
 
     _from_ascii = {
-        " "   : None,
+        " "   : EMPTY,
         "#"   : BLACK,
         "O"   : WHITE,
-    }
-
-    _mapping = {
-        None  : None,
-        'b'   : BLACK,
-        'w'   : WHITE,
     }
 
     @classmethod
@@ -185,13 +198,9 @@ class Board(object):
         if board is None:
             self.board = []
             for _ in range(self.size):
-                self.board.append([None] * self.size)
+                self.board.append([EMPTY] * self.size)
         else:
             self.board = board
-
-#         cols = [None] * self.size
-#         for _ in xrange(self.size):
-#             self.board.append(cols)
 
     def get(self, row, col):
         return self.board[row][col]

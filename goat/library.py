@@ -247,8 +247,8 @@ def walk():
                 yield filepath
 
 
-def games(maxgames = 0):
+def games(maxgames=0, autosetup=True, autoplay=False):
     for i, filename in enumerate(walk(), 1):
-        yield gogame.GoGame(filename)
+        yield gogame.GoGame(filename, autosetup=autosetup, autoplay=autoplay)
         if maxgames and i >= maxgames:
             break
