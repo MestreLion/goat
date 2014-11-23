@@ -81,7 +81,7 @@ class Chart(object):
 
 
 class Hook(object):
-    def __init__(self, size, outputdir, datadir):
+    def __init__(self, size):
         pass
     def gamestart(self, game, board, chart=False):
         pass
@@ -96,6 +96,8 @@ class Hook(object):
 
 
 class MoveHistogram(Hook):
+    '''Histogram of number of moves moves per game'''
+
     def __init__(self, size):
         self.data = {}
 
@@ -106,15 +108,14 @@ class MoveHistogram(Hook):
         self.data[game.id] = moves
 
     def end(self):
-        moves = sorted(self.data.values())
-        games = len(moves)
-
         datafile = os.path.join(g.USERDIR, 'hooks', self.__class__.__name__.lower(), 'data.json')
         utils.safemakedirs(os.path.dirname(datafile))
         with open(datafile, 'w') as fp:
             json.dump(self.data, fp, sort_keys=True, separators=(',', ': '), indent=0)
 
-        self._save_output(games, moves)
+        moves = sorted(self.data.values())
+        games = len(moves)
+        self._save_result(games, moves)
 
     def display(self):
         datafile = os.path.join(g.USERDIR, 'hooks', self.__class__.__name__.lower(), 'data.json')
@@ -124,7 +125,7 @@ class MoveHistogram(Hook):
         moves = sorted(self.data.values())
         games = len(moves)
 
-        self._save_output(games, moves)
+        self._save_result(games, moves)
 
         array = numpy.array(moves)
         minmoves = numpy.min(array)
@@ -168,14 +169,18 @@ class MoveHistogram(Hook):
         chart.save("move_histogram_%s" % games)
         chart.close()
 
-    def _save_output(self, games, moves):
+    def _save_result(self, games, moves):
         resultsfile = os.path.join(g.RESULTSDIR, "move_histogram_%s.json" % games)
         with open(resultsfile, 'w') as fp:
             json.dump(moves, fp, separators=(',', ': '), indent=0)
 
 
 class TimeLine(object):
+    '''Game evolution of stones in board and accumulated prisoners per move'''
+
     def __init__(self, size):
+        self.data = {}
+        self.gamedata = {}
         self.points = board_points(size)
         self.games = 0
 
@@ -185,10 +190,13 @@ class TimeLine(object):
         self.totalwhitescaptured = []
 
     def gamestart(self, game, board, chart=False):
-        self.gameblacks = [0]
-        self.gamewhites = [0]
-        self.gameblackscaptured = [0]
-        self.gamewhitescaptured = [0]
+        # assuming there is no handicap!
+        self.gamedata = dict(blackstones = [0],
+                             whitestones = [0],
+                             blackcap = [0],
+                             whitecap = [0],)
+        if not game.boards:
+            game.play()
 
     def move(self, game, board, move):
         blacks = 0
@@ -201,48 +209,71 @@ class TimeLine(object):
         color, _ = move
         if   color == gogame.BLACK:
             blackscaptured = 0
-            whitescaptured = self.gamewhites[-1] - whites
+            whitescaptured = self.gamedata['whitestones'][-1] - whites
         elif color == gogame.WHITE:
-            blackscaptured = self.gameblacks[-1] - blacks
+            blackscaptured = self.gamedata['blackstones'][-1] - blacks
             whitescaptured = 0
         else:  # pass
             blackscaptured = whitescaptured = 0
 
-        self.gameblackscaptured.append(self.gameblackscaptured[-1] + blackscaptured)
-        self.gamewhitescaptured.append(self.gamewhitescaptured[-1] + whitescaptured)
+        self.gamedata['blackcap'].append(self.gamedata['blackcap'][-1] + blackscaptured)
+        self.gamedata['whitecap'].append(self.gamedata['whitecap'][-1] + whitescaptured)
 
-        self.gameblacks.append(blacks)
-        self.gamewhites.append(whites)
+        self.gamedata['blackstones'].append(blacks)
+        self.gamedata['whitestones'].append(whites)
 
-    def gameover(self, game, board, chart=False, discard=False):
-        if discard:
-            return
-
-        self.totalblacks.append(self.gameblacks)
-        self.totalwhites.append(self.gamewhites)
-        self.totalblackscaptured.append(self.gameblackscaptured)
-        self.totalwhitescaptured.append(self.gamewhitescaptured)
-
-        self.games += 1
-        if self.games % 5000 == 0:
+    def gameover(self, game, board, chart=False):
+        self.data[game.id] = self.gamedata
+        if chart:
             chart = Chart()
-            chart.plot(self.gameblacks, color="red",  lw=2, label="Black stones")
-            chart.plot(self.gamewhites, color="blue", lw=2, label="White stones")
-            chart.plot(self.gameblackscaptured, color="red",  label="Black captured")
-            chart.plot(self.gamewhitescaptured, color="blue", label="White captured")
-            chart.set(title="Stones per Move - Game %s" % game.name, xlabel="Moves", ylabel="Stones", loc=2)
-            chart.save("timeline_%s" % game.name)
+            chart.plot(self.gamedata['blackstones'], color="red",  lw=2, label="Black stones")
+            chart.plot(self.gamedata['whitestones'], color="blue", lw=2, label="White stones")
+            chart.plot(self.gamedata['blackcap'], color="red",  label="Black captured")
+            chart.plot(self.gamedata['whitecap'], color="blue", label="White captured")
+            chart.set(title="Stones per Move\n%s" % game.description, xlabel="Moves", ylabel="Stones", loc=2)
+            chart.save("timeline_%s" % game.id)
             chart.close()
             self.end()
 
+    def prettydict(self, obj, indent=1, _lvl=0):
+        sep = " " * indent
+        if isinstance(obj, dict):
+            return ('{\n%s%s\n%s}') % (
+                sep * _lvl,
+                (",\n%s" % (sep * _lvl)).join(['"%s": %s' % (k, self.prettydict(v, indent, _lvl+1))
+                                        for k, v in sorted(obj.iteritems())]),
+                sep * (_lvl-1))
+        else:
+            result = json.dumps(obj, separators=(',',':')).replace('],[', '],\n%s[' % (sep * _lvl))
+            return result.replace('[[', '[\n%s[' % (sep * _lvl)).replace(']]', ']\n%s]' % (sep * (_lvl-1)))
+
     def end(self):
-        log.info("Games processed: %d", self.games)
+        datafile = os.path.join(g.USERDIR, 'hooks', self.__class__.__name__.lower(), 'data.json')
+        utils.safemakedirs(os.path.dirname(datafile))
+        with open(datafile, 'w') as fp:
+            fp.write(self.prettydict(self.data) + '\n')
+            #json.dump(self.data, fp, sort_keys=True)
+
+        games = len(self.data)
+        result = {key: tuple(gamedata[key] for gamedata in self.data.itervalues()) for key in self.gamedata}
+
+        self._save_result(games, result)
+
+    def display(self):
+        datafile = os.path.join(g.USERDIR, 'hooks', self.__class__.__name__.lower(), 'data.json')
+        with open(datafile, 'r') as fp:
+            self.data = json.load(fp)
+
+        games = len(self.data)
+        result = {key: tuple(gamedata[key] for gamedata in self.data.itervalues())
+                  for key in self.data[self.data.iterkeys().next()]}
+        self._save_result(games, result)
 
         plots = [
-            dict(data=None, color="red",  lw=1.0, ls="-",  label="Black stones",  source=self.totalblacks),
-            dict(data=None, color="blue", lw=1.0, ls="-",  label="White stones",  source=self.totalwhites),
-            dict(data=None, color="red",  lw=0.5, ls="-", label="Black captured", source=self.totalblackscaptured),
-            dict(data=None, color="blue", lw=0.5, ls="-", label="White captured", source=self.totalwhitescaptured),
+            dict(color="red",  lw=1.0, ls="-", label="Black stones",   source=result['blackstones']),
+            dict(color="blue", lw=1.0, ls="-", label="White stones",   source=result['whitestones']),
+            dict(color="red",  lw=0.5, ls="-", label="Black captured", source=result['blackcap']),
+            dict(color="blue", lw=0.5, ls="-", label="White captured", source=result['whitecap']),
         ]
 
         chart = Chart()
@@ -250,13 +281,19 @@ class TimeLine(object):
             maxmoves = len(sorted(plot['source'], key=len, reverse=True)[0])
             data = numpy.array([game + [numpy.nan] * (maxmoves - len(game)) for game in plot['source']])
             data = numpy.ma.masked_array(data, numpy.isnan(data))
-            chart.plot(numpy.mean(data, axis=0), color=plot['color'], ls=plot['ls'], lw=plot['lw'], label=plot['label'] + " - avg")
-            chart.plot(numpy.max( data, axis=0), color=plot['color'], ls=':', lw=plot['lw'], label=plot['label'] + " - max")
-            chart.plot(numpy.min( data, axis=0), color=plot['color'], ls=':', lw=plot['lw'], label=plot['label'] + " - min")
-        chart.set(title="Stones per Move - %d games" % self.games,
+            chart.plot(numpy.mean(data, axis=0), color=plot['color'], lw=plot['lw'], label=plot['label'] + " - avg", ls=plot['ls'])
+            chart.plot(numpy.max( data, axis=0), color=plot['color'], lw=plot['lw'], label=plot['label'] + " - max", ls=':')
+            chart.plot(numpy.min( data, axis=0), color=plot['color'], lw=plot['lw'], label=plot['label'] + " - min", ls=':')
+        chart.set(title="Stones per Move - %d games" % games,
                   xlabel="Move", ylabel="Stones", loc=2)
-        chart.save("timeline_%d" % self.games)
+        chart.save("timeline_%d" % games)
         chart.close()
+
+
+    def _save_result(self, games, data):
+        resultsfile = os.path.join(g.RESULTSDIR, "timeline_%s.json" % games)
+        with open(resultsfile, 'w') as fp:
+            fp.write(self.prettydict(data) + '\n')
 
 
 class StonesPerSquare(Hook):

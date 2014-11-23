@@ -132,7 +132,7 @@ def compute():
 #        calcs.LibertiesPerMove(g.options.board_size),
 #        calcs.Territories(g.options.board_size),
 #        calcs.FractalDimension(g.options.board_size),
-#        calcs.TimeLine(g.options.board_size)
+        calcs.TimeLine(g.options.board_size),
         calcs.MoveHistogram(g.options.board_size),
     ]
 
@@ -155,7 +155,7 @@ def compute():
                 hook.gamestart(game, game.initialboard, chart=chart)
 
             board = None
-            for move, board in zip(game.moves, game.boards):
+            for board, move in zip(game.boards, game.moves):
                 for hook in hooks:
                     hook.move(game, board, move)
 
@@ -184,8 +184,8 @@ def display():
 #        calcs.LibertiesPerMove(g.options.board_size),
 #        calcs.Territories(g.options.board_size),
 #        calcs.FractalDimension(g.options.board_size),
-#        calcs.TimeLine(g.options.board_size)
-        calcs.MoveHistogram(g.options.board_size),
+        calcs.TimeLine(g.options.board_size),
+#        calcs.MoveHistogram(g.options.board_size),
     ]
     for hook in hooks:
         hook.display()
