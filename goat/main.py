@@ -101,6 +101,8 @@ def main(argv=None):
     subparser.add_argument('--games', '-g', dest='games', default=0, type=int, metavar="NUM",
                            help="Compute at most NUM games. 0 for all games.")
 
+    subparser = subparsers.add_parser('display', help="Display analysis results")
+
     if argv is None:
         argv = sys.argv[1:]
     g.options = parser.parse_args(argv)
@@ -116,6 +118,9 @@ def main(argv=None):
 
     elif g.options.command == "compute":
         compute()
+
+    elif g.options.command == "display":
+        display()
 
     log.info("Finished in %s", time.strftime('%H:%M:%S', time.gmtime(time.time()-start)))
 
@@ -171,3 +176,16 @@ def compute():
         hook.end()
 
     log.info("Games processed: %d", games)
+
+
+def display():
+    hooks = [
+#        calcs.StonesPerSquare(g.options.board_size),
+#        calcs.LibertiesPerMove(g.options.board_size),
+#        calcs.Territories(g.options.board_size),
+#        calcs.FractalDimension(g.options.board_size),
+#        calcs.TimeLine(g.options.board_size)
+        calcs.MoveHistogram(g.options.board_size),
+    ]
+    for hook in hooks:
+        hook.display()

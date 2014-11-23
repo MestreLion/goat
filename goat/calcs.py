@@ -23,6 +23,7 @@ import json
 
 import matplotlib.pyplot as plt  # Debian: python-matplotlib
 import numpy  # Debian: python-numpy
+import scipy.stats  # Debian: python-scipy
 
 import globals as g
 import ascii
@@ -58,13 +59,16 @@ class Chart(object):
         self.ax.plot(*args, **kwargs)
 
     def set(self, title="", xlabel="", ylabel="", loc=0, grid=True, semilog=False, loglog=False, legend=True):
-        if legend:  self.ax.legend(loc=loc, labelspacing=0.2, prop={'size': 10})
-        if xlabel:  self.ax.set_xlabel(xlabel)
-        if ylabel:  self.ax.set_ylabel(ylabel)
-        if title:   self.ax.set_title(title)
+        if legend:  self.ax.legend(loc=loc, labelspacing=0.2, prop={'size': 8})
+        if xlabel:  self.ax.set_xlabel(xlabel, size=10)
+        if ylabel:  self.ax.set_ylabel(ylabel, size=10)
+        if title:
+            size = 12 if title.count('\n') < 2 else 11
+            self.ax.set_title(title, size=size)
         if grid:    self.ax.grid()
         if semilog: self.ax.semilogy()
         if loglog:  self.ax.loglog()
+        self.ax.tick_params(axis='both', which='major', labelsize=8)
 
     def save(self, name):
         for ext in ['png', 'eps', 'svg']:
@@ -87,6 +91,8 @@ class Hook(object):
         pass
     def end(self):
         pass
+    def display(self):
+        pass
 
 
 class MoveHistogram(Hook):
@@ -108,23 +114,43 @@ class MoveHistogram(Hook):
         with open(datafile, 'w') as fp:
             json.dump(self.data, fp, sort_keys=True, separators=(',', ': '), indent=0)
 
-        resultsfile = os.path.join(g.RESULTSDIR, "move_histogram_%s.json" % games)
-        with open(resultsfile, 'w') as fp:
-            json.dump(moves, fp, separators=(',', ': '), indent=0)
+        self._save_output(games, moves)
+
+    def display(self):
+        datafile = os.path.join(g.USERDIR, 'hooks', self.__class__.__name__.lower(), 'data.json')
+        with open(datafile, 'r') as fp:
+            self.data = json.load(fp)
+
+        moves = sorted(self.data.values())
+        games = len(moves)
+
+        self._save_output(games, moves)
+
+        array = numpy.array(moves)
+        minmoves = numpy.min(array)
+        maxmoves = numpy.max(array)
+        mode, count = scipy.stats.mode(array)
+        numpy.std(array)
+        title = ("Moves per Game - Histogram of %d games\n"
+                "Min=%d, Avg=%.01f, Mode=%d (x %d), Max=%d\n"
+                "Std=%.01f, Skew=%.03f, Kurtosis=%.03f" % (
+                    games,
+                    minmoves,
+                    numpy.mean(array),
+                    mode, count,
+                    maxmoves,
+                    numpy.std(array),
+                    scipy.stats.skew(array),
+                    scipy.stats.kurtosis(array),
+                    ))
+        log.info(title)
 
         binwidth = 1
-        bins = range(min(moves), max(moves) + binwidth + 1, binwidth)
+        bins = range(minmoves, maxmoves + binwidth + 1, binwidth)
 
         chart = Chart()
         chart.ax.hist(moves, bins=bins, label="Histogram")
-        chart.set(xlabel="Moves", ylabel="Games of n moves", loc=2,
-                  title="Moves per Game - Histogram of %d games\n"
-                    "Min=%d, Avg=%d, Max=%d" % (
-                    games,
-                    min(moves),
-                    int(sum(moves)/games),
-                    max(moves),
-                    ))
+        chart.set(xlabel="Moves", ylabel="Games of n moves", loc=2, title=title)
 
         survivors = []
         gamesleft = games
@@ -141,6 +167,11 @@ class MoveHistogram(Hook):
 
         chart.save("move_histogram_%s" % games)
         chart.close()
+
+    def _save_output(self, games, moves):
+        resultsfile = os.path.join(g.RESULTSDIR, "move_histogram_%s.json" % games)
+        with open(resultsfile, 'w') as fp:
+            json.dump(moves, fp, separators=(',', ': '), indent=0)
 
 
 class TimeLine(object):
