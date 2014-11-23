@@ -199,12 +199,9 @@ class TimeLine(object):
             game.play()
 
     def move(self, game, board, move):
-        blacks = 0
-        whites = 0
-        for point, _ in self.points:
-            color = board.get(*point)
-            if   color == gogame.BLACK: blacks += 1
-            elif color == gogame.WHITE: whites += 1
+        chars = ''.join([item for sublist in board.board for item in sublist])
+        blacks = chars.count(gogame.BLACK)
+        whites = chars.count(gogame.WHITE)
 
         color, _ = move
         if   color == gogame.BLACK:

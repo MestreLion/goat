@@ -32,7 +32,7 @@ import utils
 
 log = logging.getLogger(__name__)
 
-EMPTY = None
+EMPTY = ' '
 BLACK = 'b'
 WHITE = 'w'
 
