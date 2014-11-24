@@ -185,13 +185,15 @@ class TimeLine(Hook):
         self.gamedata = {}
 
     def gamestart(self, game, board, chart=False):
-        # assuming there is no handicap!
-        self.gamedata = dict(blackstones = [0],
-                             whitestones = [0],
-                             blackcap = [0],
-                             whitecap = [0],)
         if not game.boards:
             game.play()
+
+        # assuming there is no handicap!
+        self.gamedata = dict(stnblack = [0],
+                             stnwhite = [0],
+                             priblack = [0],
+                             priwhite = [0],
+                             nummoves = len(game.moves))
 
     def move(self, game, board, move):
         chars = ''.join(board.board)
@@ -201,28 +203,30 @@ class TimeLine(Hook):
         color, _ = move
         if   color == gogame.BLACK:
             blackscaptured = 0
-            whitescaptured = self.gamedata['whitestones'][-1] - whites
+            whitescaptured = self.gamedata['stnwhite'][-1] - whites
         elif color == gogame.WHITE:
-            blackscaptured = self.gamedata['blackstones'][-1] - blacks
+            blackscaptured = self.gamedata['stnblack'][-1] - blacks
             whitescaptured = 0
         else:  # pass
             blackscaptured = whitescaptured = 0
 
-        self.gamedata['blackcap'].append(self.gamedata['blackcap'][-1] + blackscaptured)
-        self.gamedata['whitecap'].append(self.gamedata['whitecap'][-1] + whitescaptured)
+        self.gamedata['priblack'].append(self.gamedata['priblack'][-1] + blackscaptured)
+        self.gamedata['priwhite'].append(self.gamedata['priwhite'][-1] + whitescaptured)
 
-        self.gamedata['blackstones'].append(blacks)
-        self.gamedata['whitestones'].append(whites)
+        self.gamedata['stnblack'].append(blacks)
+        self.gamedata['stnwhite'].append(whites)
 
     def gameover(self, game, board, chart=False):
         self.data[game.id] = self.gamedata
         if chart:
             chart = Chart()
-            chart.plot(self.gamedata['blackstones'], color="red",  lw=2, label="Black stones")
-            chart.plot(self.gamedata['whitestones'], color="blue", lw=2, label="White stones")
-            chart.plot(self.gamedata['blackcap'], color="red",  label="Black captured")
-            chart.plot(self.gamedata['whitecap'], color="blue", label="White captured")
-            chart.set(title="Stones per Move\n%s" % game.description, xlabel="Moves", ylabel="Stones", loc=2)
+            chart.plot(self.gamedata['stnblack'], color="red",  lw=2, label="Black stones")
+            chart.plot(self.gamedata['stnwhite'], color="blue", lw=2, label="White stones")
+            chart.plot(self.gamedata['priblack'], color="red",  label="Black captured")
+            chart.plot(self.gamedata['priwhite'], color="blue", label="White captured")
+            chart.set(title="Stones per Move\n%s (%d moves)" % (game.description,
+                                                                self.gamedata['nummoves']),
+                      xlabel="Moves", ylabel="Stones", loc=2)
             chart.save("timeline_%s" % game.id)
             chart.close()
             self.end()
@@ -236,20 +240,25 @@ class TimeLine(Hook):
 
         games = len(self.data)
         result = {key: tuple(gamedata[key] for gamedata in self.data.itervalues()) for key in self.gamedata}
+        result['nummoves'] = tuple(sorted(result['nummoves']))
 
         self._save_result(games, result)
 
     def display(self):
         games = len(self.data)
+        title="Stones per Move - %d games" % games
+        log.info(title)
+
         result = {key: tuple(gamedata[key] for gamedata in self.data.itervalues())
                   for key in self.data[self.data.iterkeys().next()]}
+        result['nummoves'] = tuple(sorted(result['nummoves']))
         self._save_result(games, result)
 
         plots = [
-            dict(color="red",  lw=1.0, ls="-", label="Black stones",   source=result['blackstones']),
-            dict(color="blue", lw=1.0, ls="-", label="White stones",   source=result['whitestones']),
-            dict(color="red",  lw=0.5, ls="-", label="Black captured", source=result['blackcap']),
-            dict(color="blue", lw=0.5, ls="-", label="White captured", source=result['whitecap']),
+            dict(color="red",  lw=1.0, ls="-", label="Black stones",   source=result['stnblack']),
+            dict(color="blue", lw=1.0, ls="-", label="White stones",   source=result['stnwhite']),
+            dict(color="red",  lw=0.5, ls="-", label="Black captured", source=result['priblack']),
+            dict(color="blue", lw=0.5, ls="-", label="White captured", source=result['priwhite']),
         ]
 
         chart = Chart()
@@ -260,8 +269,22 @@ class TimeLine(Hook):
             chart.plot(numpy.mean(data, axis=0), color=plot['color'], lw=plot['lw'], label=plot['label'] + " - avg", ls=plot['ls'])
             chart.plot(numpy.max( data, axis=0), color=plot['color'], lw=plot['lw'], label=plot['label'] + " - max", ls=':')
             chart.plot(numpy.min( data, axis=0), color=plot['color'], lw=plot['lw'], label=plot['label'] + " - min", ls=':')
-        chart.set(title="Stones per Move - %d games" % games,
-                  xlabel="Move", ylabel="Stones", loc=2)
+        chart.set(title=title, xlabel="Move", ylabel="Stones", loc=2)
+
+        survivors = []
+        gamesleft = games
+        moves = result['nummoves']
+        i = 0
+        for m in xrange(max(moves) + 1):
+            while i < games and m == moves[i]:
+                gamesleft -= 1
+                i += 1
+            survivors.append(gamesleft)
+
+        chart.ax = chart.ax.twinx()
+        chart.plot(survivors, label="Games left",  color="green")
+        chart.set(loc=3, ylabel="Games of at least n moves")
+
         chart.save("timeline_%d" % games)
         chart.close()
 
