@@ -1,0 +1,351 @@
+# Headers
+8272265 100.0% Total (24)
+3910692  47.3% 3910692 B[
+3895362  47.1% 3895362 W[
+  30000   0.4% WR[
+  30000   0.4% RU[
+  30000   0.4% RE[
+  30000   0.4% PW[
+  30000   0.4% PB[
+  30000   0.4% FF[
+  30000   0.4% DT[
+  30000   0.4% CA[
+  30000   0.4% BR[
+  29982   0.4% KM[
+  29842   0.4% SZ[
+  23453   0.3% GM[
+  22456   0.3% PC[
+  22270   0.3% TM[
+  22085   0.3% OT[
+  16822   0.2% ST[
+  16822   0.2% AP[
+   6643   0.1% EV[
+   5514   0.1% RO[
+    165   0.0% BT[
+    156   0.0% WT[
+      1   0.0% SO[
+
+# GM
+  23453 100.0% Total (1)
+  23453 100.0% GM[1]
+
+# FF
+  30000 100.0% Total (1)
+  30000 100.0% FF[4]
+
+# CA
+  30000 100.0% Total (1)
+  30000 100.0% CA[UTF-8]
+
+# SZ
+  29842 100.0% Total (1)
+  29842 100.0% SZ[19]
+
+# RU
+  30000 100.0% Total (2)
+  27793  92.6% RU[Japanese]
+   2207   7.4% RU[japanese]
+
+# KM
+  29982 100.0% Total (26)
+  12184  40.6% KM[6.50]
+   9785  32.6% KM[0.50]
+   4302  14.3% KM[5.5]
+   2252   7.5% KM[0]
+    659   2.2% KM[4.5]
+    444   1.5% KM[5]
+    278   0.9% KM[5.50]
+     13   0.0% KM[-4.50]
+     11   0.0% KM[4]
+     54   0.2% Other (17)
+
+# [WB]R
+  60000 100.0% Total (26)
+  14154  23.6% BR[6d]
+   9744  16.2% WR[7d]
+   7483  12.5% WR[6d]
+   5433   9.1% BR[7d]
+   3962   6.6% WR[9p]
+   3938   6.6% BR[9p]
+   3366   5.6% WR[8d]
+   2071   3.5% BR[8d]
+   1651   2.8% WR[9d]
+    898   1.5% WR[7p]
+    760   1.3% WR[8p]
+    676   1.1% BR[7p]
+    640   1.1% BR[5p]
+    628   1.0% BR[8p]
+    627   1.0% BR[4p]
+    607   1.0% BR[9d]
+    602   1.0% WR[6p]
+    570   0.9% WR[5p]
+    534   0.9% BR[6p]
+    473   0.8% WR[4p]
+    284   0.5% BR[3p]
+    236   0.4% BR[1p]
+    205   0.3% WR[3p]
+    172   0.3% BR[2p]
+    146   0.2% WR[1p]
+    140   0.2% WR[2p]
+
+# HA
+
+# ST
+  16822 100.0% Total (1)
+  16822 100.0% ST[2]
+
+# AP
+  16822 100.0% Total (2)
+  16208  96.4% AP[CGoban:3]
+    614   3.6% AP[CGoban:2]
+
+# PC
+  22456 100.0% Total (18)
+  16159  72.0% PC[The KGS Go Server at http://www.gokgs.com/]
+   6069  27.0% PC[The Kiseido Go Server (KGS) at http://kgs.kiseido.com/]
+    130   0.6% PC[Japan]
+     48   0.2% PC[The K Go Server (KGS) at http://www.gokgs.com/]
+     18   0.1% PC[日本棋院]
+      9   0.0% PC[Japanese]
+      6   0.0% PC[中国棋院]
+      5   0.0% PC[韩国棋院]
+      2   0.0% PC[韩国]
+      2   0.0% PC[东京]
+      1   0.0% PC[爱嫒县民文]
+      1   0.0% PC[沈阳]
+      1   0.0% PC[汉城]
+      1   0.0% PC[松山县民文]
+      1   0.0% PC[Nihon Ki-in]
+      1   0.0% PC[Nihon Ki-in, Tokyo]
+      1   0.0% PC[Kansai Branch of Nihon Ki-in]
+      1   0.0% PC[Hanguk Kiweon]
+
+# EV
+   6643 100.0% Total (622)
+    137   2.1% EV[Japan Promotion Tournament, 1934, Spring]
+    121   1.8% EV[Japan Promotion Tournament, 1934, Fall]
+     51   0.8% EV[Meijin,  7th]
+     44   0.7% EV[Meijin, 23rd]
+     43   0.6% EV[Meijin, 21st]
+     43   0.6% EV[Meijin, 17th]
+     42   0.6% EV[Meijin, 24th]
+     42   0.6% EV[Meijin, 22nd]
+     42   0.6% EV[Meijin, 14th]
+     42   0.6% EV[Meijin, 13th]
+     41   0.6% EV[Meijin, 20th]
+     41   0.6% EV[Meijin, 19th]
+     41   0.6% EV[Meijin, 18th]
+     41   0.6% EV[Meijin, 12th]
+     41   0.6% EV[Meijin, 11th]
+     41   0.6% EV[Meijin,  5th]
+     41   0.6% EV[Meijin,  1st]
+     40   0.6% EV[Tengen,  4th]
+     40   0.6% EV[Meijin, 26th]
+     40   0.6% EV[Meijin, 16th]
+     40   0.6% EV[Meijin,  4th]
+     40   0.6% EV[Kisei, 17th]
+     40   0.6% EV[Honinbo, 49th]
+     40   0.6% EV[Honinbo, 47th]
+     39   0.6% EV[Super Go]
+     39   0.6% EV[Meijin, 25th]
+     39   0.6% EV[Kisei,  2nd]
+     38   0.6% EV[Meijin, 15th]
+     38   0.6% EV[Kisei,  6th]
+     38   0.6% EV[Honinbo, 55th]
+     38   0.6% EV[Honinbo, 53rd]
+     38   0.6% EV[Honinbo, 51st]
+     38   0.6% EV[Honinbo, 50th]
+     37   0.6% EV[Meijin (Yomiuri),  1st]
+     37   0.6% EV[Kisei, 16th]
+     37   0.6% EV[Honinbo, 56th]
+     37   0.6% EV[Honinbo, 46th]
+     36   0.5% EV[Nihon Ki-in Championship, 22nd]
+     36   0.5% EV[Kisei, 15th]
+     36   0.5% EV[Kisei,  4th]
+     36   0.5% EV[Honinbo, 52nd]
+     35   0.5% EV[Kisei, 26th]
+     35   0.5% EV[Kisei, 25th]
+     35   0.5% EV[Kisei, 13th]
+     35   0.5% EV[Kisei,  7th]
+     35   0.5% EV[Kisei,  5th]
+     35   0.5% EV[Kisei,  3rd]
+     35   0.5% EV[Judan, 32nd]
+     35   0.5% EV[Honinbo, 48th]
+     34   0.5% EV[Meijin, 10th]
+     34   0.5% EV[Judan, 35th]
+     34   0.5% EV[Judan, 26th]
+     33   0.5% EV[Tengen,  3rd]
+     33   0.5% EV[Kisei, 10th]
+     33   0.5% EV[Judan, 37th]
+     33   0.5% EV[Judan, 34th]
+     33   0.5% EV[Judan, 33rd]
+     33   0.5% EV[Judan, 27th]
+     33   0.5% EV[Judan, 17th]
+     33   0.5% EV[Japan Promotion Tournament, 1940]
+     33   0.5% EV[Honinbo, 44th]
+     32   0.5% EV[Kisei, 14th]
+     32   0.5% EV[Judan, 39th]
+     32   0.5% EV[Judan, 36th]
+     32   0.5% EV[Honinbo, 45th]
+     31   0.5% EV[Kisei,  8th]
+     31   0.5% EV[Judan, 25th]
+     31   0.5% EV[Japan Promotion Tournament, 1941]
+     31   0.5% EV[Honinbo, 35th]
+     30   0.5% EV[Meijin,  6th]
+     30   0.5% EV[Judan, 38th]
+     30   0.5% EV[Judan, 31st]
+     30   0.5% EV[Judan, 16th]
+     30   0.5% EV[Judan, 13th]
+     29   0.4% EV[Meijin (Yomiuri), 13th]
+     29   0.4% EV[Meijin (Yomiuri), 11th]
+     29   0.4% EV[Kisei, 19th]
+     29   0.4% EV[Judan, 21st]
+     29   0.4% EV[Judan, 19th]
+     29   0.4% EV[Honinbo, 25th]
+     28   0.4% EV[Tengen,  6th]
+     28   0.4% EV[Japan Promotion Tournament, 1936, Spring]
+     28   0.4% EV[Honinbo, 23rd]
+     28   0.4% EV[Honinbo, 22nd]
+     28   0.4% EV[Gosei,  5th]
+     27   0.4% EV[Tengen,  5th]
+     27   0.4% EV[Honinbo, 17th]
+     26   0.4% EV[Kisei, 20th]
+     26   0.4% EV[Japan Strongest Player,  2nd]
+     26   0.4% EV[Japan Promotion Tournament, 1939, Spring]
+     26   0.4% EV[Japan Promotion Tournament, 1935, Spring]
+     25   0.4% EV[Pro Best Ten, 11th]
+     25   0.4% EV[Kisei, 24th]
+     25   0.4% EV[Kisei, 23rd]
+     25   0.4% EV[Judan, 41st]
+     25   0.4% EV[Japan Promotion Tournament, 1951]
+     25   0.4% EV[Honinbo, 24th]
+     25   0.4% EV[Honinbo, 19th]
+     23   0.3% EV[Kisei, 21st]
+     23   0.3% EV[Kisei, 18th]
+   3058  46.0% Other (522)
+
+# RO
+   5514 100.0% Total (254)
+   1727  31.3% RO[League]
+    514   9.3% RO[Round 1]
+    260   4.7% RO[Round 2]
+    216   3.9% RO[Semi-Final]
+    130   2.4% RO[Winners' Section, Round 1]
+    102   1.8% RO[Quarter Final]
+     98   1.8% RO[Title, Game 2]
+     94   1.7% RO[Round 3]
+     93   1.7% RO[Title, Game 1]
+     86   1.6% RO[Title Game 3]
+     81   1.5% RO[Losers' Section, Round 2]
+     80   1.5% RO[Title Game 2]
+     77   1.4% RO[Final]
+     76   1.4% RO[Title, Game 3]
+     76   1.4% RO[Title Game 1]
+     75   1.4% RO[Winners' Section, Round 2]
+     70   1.3% RO[Losers' Section, Round 1]
+     66   1.2% RO[Title Game 4]
+     58   1.1% RO[Losers' Section, Round 3]
+     57   1.0% RO[Title Game 5]
+     54   1.0% RO[Preliminary]
+     49   0.9% RO[Title, Game 4]
+     45   0.8% RO[Round 6]
+     45   0.8% RO[Round 5]
+     45   0.8% RO[Round 4]
+     38   0.7% RO[Winners' Section, Semi-Final]
+     38   0.7% RO[Losers' Section, Semi-Final]
+     36   0.7% RO[League Entrant Final]
+     35   0.6% RO[Qualifier]
+     34   0.6% RO[Round 8]
+     31   0.6% RO[League Qualifier]
+     31   0.6% RO[League B]
+     29   0.5% RO[Title, Game 5]
+     29   0.5% RO[Title Game 6]
+     27   0.5% RO[Round 7]
+     27   0.5% RO[League A]
+     24   0.4% RO[Winners' Section, Final]
+     24   0.4% RO[Losers' Section, Final]
+     22   0.4% RO[Preliminary Round 3]
+     20   0.4% RO[Final Game 1]
+     19   0.3% RO[Challengers' Final]
+     15   0.3% RO[Final, Game 2]
+     15   0.3% RO[Final, Game 1]
+     15   0.3% RO[Final Game 2]
+     14   0.3% RO[Title Game 7]
+     13   0.2% RO[Title, Game 6]
+     13   0.2% RO[Game 10]
+     12   0.2% RO[Strongest Player Quarter Final]
+     12   0.2% RO[Game 1]
+     12   0.2% RO[Challenger Final]
+    655  11.9% Other (204)
+
+# SO
+      1 100.0% Total (1)
+      1 100.0% SO[go4go]
+
+# RE
+  30000 100.0% Total (238)
+   2456   8.2% RE[B+]
+   1736   5.8% RE[W+]
+    772   2.6% RE[W+0.50]
+    771   2.6% RE[B+0.50]
+    758   2.5% RE[W+2.50]
+    751   2.5% RE[W+3.50]
+    748   2.5% RE[W+1.50]
+    728   2.4% RE[B+1.50]
+    696   2.3% RE[B+2.50]
+    689   2.3% RE[B+3.50]
+    680   2.3% RE[W+4.50]
+    670   2.2% RE[W+6.50]
+    652   2.2% RE[B+4.50]
+    642   2.1% RE[W+7.50]
+    628   2.1% RE[W+5.50]
+    589   2.0% RE[B+6.50]
+    571   1.9% RE[B+5.50]
+    569   1.9% RE[B+7.50]
+    538   1.8% RE[W+8.50]
+    517   1.7% RE[W+9.50]
+    496   1.7% RE[B+8.50]
+    482   1.6% RE[B+9.50]
+    479   1.6% RE[W+10.50]
+    466   1.6% RE[B+10.50]
+    462   1.5% RE[W+11.50]
+    448   1.5% RE[W+12.50]
+    391   1.3% RE[W+13.50]
+    387   1.3% RE[B+11.50]
+    359   1.2% RE[B+12.50]
+    344   1.1% RE[W+14.50]
+    304   1.0% RE[W+15.50]
+    301   1.0% RE[B+13.50]
+    296   1.0% RE[W+16.50]
+    287   1.0% RE[B+14.50]
+    252   0.8% RE[W+17.50]
+    241   0.8% RE[W+18.50]
+    240   0.8% RE[B+16.50]
+    237   0.8% RE[B+15.50]
+    214   0.7% RE[W+19.50]
+    209   0.7% RE[B+18.50]
+    206   0.7% RE[W+0.5]
+    191   0.6% RE[B+17.50]
+    185   0.6% RE[W+1.5]
+    180   0.6% RE[B+0.5]
+    179   0.6% RE[B+2.5]
+    176   0.6% RE[W+20.50]
+    174   0.6% RE[B+3.5]
+    169   0.6% RE[B+20.50]
+    168   0.6% RE[B+1.5]
+    165   0.6% RE[B+19.50]
+    159   0.5% RE[W+2.5]
+    151   0.5% RE[W+22.50]
+    145   0.5% RE[W+21.50]
+    127   0.4% RE[W+3.5]
+    127   0.4% RE[W+23.50]
+    122   0.4% RE[W+4.5]
+    116   0.4% RE[B+4.5]
+    111   0.4% RE[B+22.50]
+    108   0.4% RE[B+21.50]
+    107   0.4% RE[B+2]
+    106   0.4% RE[W+24.50]
+    103   0.3% RE[B+24.50]
+    101   0.3% RE[B+1]
+    100   0.3% RE[B+4]
+   3468  11.6% Other (174)
