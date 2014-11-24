@@ -1,15 +1,30 @@
 #!/bin/bash
 
-gamedir="$HOME"/.cache/goat
+# Print statistics on game library
+# Requires `topuniq` utility, available at http://github.com/MestreLion/topuniq
+
+gamedir=${1:-"$HOME"/.local/share/goat/library}
 
 echo "# Headers"
 grep -Proh '[A-Z][A-Z]?\[' "$gamedir" | topuniq
 
-headers=(GM FF CA SZ RU KM '[WB]R' HA ST AP ID OH PC EV RO SO RE)
+headers=(GM FF CA SZ RU KM '[WB]R' HA ST AP PC EV RO SO RE)
+
+declare -A params
+params[RU]="--min-count=10"
+params[KM]="--min-count=10"
+params[PC]="--top=50"
+params[EV]="--top=100"
+params[RO]="--top=50"
+params[RE]="--min-count=100"
 
 for header in "${headers[@]}"; do
-	extra=
+	if [[ "$header" != "[WB]R" ]] && [[ "${params[$header]}" ]]; then
+		param=("${params[$header]}")
+	else
+		param=()
+	fi
 	echo
 	echo "# $header"
-	grep -Proh "$header\[.*?\]" "$gamedir" | topuniq "$@"
+	grep -Proh "$header\[.*?\]" "$gamedir" | topuniq "$@" "${param[@]}"
 done
