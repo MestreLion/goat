@@ -82,7 +82,13 @@ class Chart(object):
 
 class Hook(object):
     def __init__(self, size):
-        pass
+        try:
+            datafile = os.path.join(g.USERDIR, 'hooks', self.__class__.__name__.lower(), 'data.json')
+            with open(datafile, 'r') as fp:
+                self.data = json.load(fp)
+        except (IOError, ValueError):
+            self.data = {}
+
     def gamestart(self, game, board, chart=False):
         pass
     def move(self, game, board, move):
@@ -99,7 +105,7 @@ class MoveHistogram(Hook):
     '''Histogram of number of moves moves per game'''
 
     def __init__(self, size):
-        self.data = {}
+        super(MoveHistogram, self).__init__(size)
 
     def gameover(self, game, board, chart=False):
         if not game.id:
@@ -118,10 +124,6 @@ class MoveHistogram(Hook):
         self._save_result(games, moves)
 
     def display(self):
-        datafile = os.path.join(g.USERDIR, 'hooks', self.__class__.__name__.lower(), 'data.json')
-        with open(datafile, 'r') as fp:
-            self.data = json.load(fp)
-
         moves = sorted(self.data.values())
         games = len(moves)
 
@@ -175,19 +177,12 @@ class MoveHistogram(Hook):
             json.dump(moves, fp, separators=(',', ': '), indent=0)
 
 
-class TimeLine(object):
+class TimeLine(Hook):
     '''Game evolution of stones in board and accumulated prisoners per move'''
 
     def __init__(self, size):
-        self.data = {}
+        super(TimeLine, self).__init__(size)
         self.gamedata = {}
-        self.points = board_points(size)
-        self.games = 0
-
-        self.totalblacks = []
-        self.totalwhites = []
-        self.totalblackscaptured = []
-        self.totalwhitescaptured = []
 
     def gamestart(self, game, board, chart=False):
         # assuming there is no handicap!
@@ -232,23 +227,11 @@ class TimeLine(object):
             chart.close()
             self.end()
 
-    def prettydict(self, obj, indent=1, _lvl=0):
-        sep = " " * indent
-        if isinstance(obj, dict):
-            return ('{\n%s%s\n%s}') % (
-                sep * _lvl,
-                (",\n%s" % (sep * _lvl)).join(['"%s": %s' % (k, self.prettydict(v, indent, _lvl+1))
-                                        for k, v in sorted(obj.iteritems())]),
-                sep * (_lvl-1))
-        else:
-            result = json.dumps(obj, separators=(',',':')).replace('],[', '],\n%s[' % (sep * _lvl))
-            return result.replace('[[', '[\n%s[' % (sep * _lvl)).replace(']]', ']\n%s]' % (sep * (_lvl-1)))
-
     def end(self):
         datafile = os.path.join(g.USERDIR, 'hooks', self.__class__.__name__.lower(), 'data.json')
         utils.safemakedirs(os.path.dirname(datafile))
         with open(datafile, 'w') as fp:
-            fp.write(self.prettydict(self.data) + '\n')
+            fp.write(utils.prettyjson(self.data) + '\n')
             #json.dump(self.data, fp, sort_keys=True)
 
         games = len(self.data)
@@ -257,10 +240,6 @@ class TimeLine(object):
         self._save_result(games, result)
 
     def display(self):
-        datafile = os.path.join(g.USERDIR, 'hooks', self.__class__.__name__.lower(), 'data.json')
-        with open(datafile, 'r') as fp:
-            self.data = json.load(fp)
-
         games = len(self.data)
         result = {key: tuple(gamedata[key] for gamedata in self.data.itervalues())
                   for key in self.data[self.data.iterkeys().next()]}
@@ -290,7 +269,7 @@ class TimeLine(object):
     def _save_result(self, games, data):
         resultsfile = os.path.join(g.RESULTSDIR, "timeline_%s.json" % games)
         with open(resultsfile, 'w') as fp:
-            fp.write(self.prettydict(data) + '\n')
+            fp.write(utils.prettyjson(data) + '\n')
 
 
 class StonesPerSquare(Hook):

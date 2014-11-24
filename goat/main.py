@@ -24,7 +24,6 @@ import os
 import ConfigParser
 import shutil
 import time
-import random
 
 import progressbar  # Debian: python-progressbar
 
@@ -185,7 +184,7 @@ def display():
 #        calcs.Territories(g.options.board_size),
 #        calcs.FractalDimension(g.options.board_size),
         calcs.TimeLine(g.options.board_size),
-#        calcs.MoveHistogram(g.options.board_size),
+        calcs.MoveHistogram(g.options.board_size),
     ]
     for hook in hooks:
         hook.display()

@@ -20,6 +20,7 @@
 import os
 import sys
 import subprocess
+import json
 
 import globals as g
 
@@ -47,3 +48,27 @@ def launchfile(filename):
         os.system("start %s" % filename)  # could be os.startfile() too
     else:  # Assume POSIX (Linux, BSD, etc)
         subprocess.call(('xdg-open', filename))
+
+
+def prettyjson(obj, indent=1, _lvl=0):
+    '''Serialize <obj> to JSON in a compact yet human-friendly format
+        Dictionaries and lists of lists are formated one key/item per line
+        Ordinary lists other singletons are packed in a single line
+    '''
+    sep = " " * indent
+
+    # Handle dictionaries
+    if isinstance(obj, dict):
+        return ('{\n%s%s\n%s}') % (
+            sep * _lvl,
+            (",\n%s" % (sep * _lvl)).join(['"%s": %s' % (k, prettyjson(v, indent, _lvl+1))
+                                           for k, v in sorted(obj.iteritems())]),
+            sep * (_lvl-1))
+
+    # Handle lists of lists
+    # Plain text replace is not robust and will break strings that contains "[[", "]]" or "],["
+    # But it's much faster than properly iterating each item
+    return json.dumps(obj, separators=(',',':')
+        ).replace('],[', '],\n%s[' % (sep * _lvl)
+        ).replace('[[' , '[\n%s['  % (sep * _lvl)
+        ).replace(']]' , ']\n%s]'  % (sep * (_lvl-1)))
