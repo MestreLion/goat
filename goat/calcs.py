@@ -194,7 +194,7 @@ class TimeLine(Hook):
             game.play()
 
     def move(self, game, board, move):
-        chars = ''.join([item for sublist in board.board for item in sublist])
+        chars = ''.join(board.board)
         blacks = chars.count(gogame.BLACK)
         whites = chars.count(gogame.WHITE)
 

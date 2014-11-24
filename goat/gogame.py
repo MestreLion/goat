@@ -33,8 +33,8 @@ import utils
 log = logging.getLogger(__name__)
 
 EMPTY = ' '
-BLACK = 'b'
-WHITE = 'w'
+BLACK = '#'
+WHITE = 'O'
 
 
 class GoGameError(Exception):
@@ -104,9 +104,16 @@ class GoGame(object):
         return id
 
     def setup(self):
+        sgfmovemap = {
+            None  : EMPTY,
+            "b"   : BLACK,
+            "w"   : WHITE,
+        }
+
         try:
-            self.sgfboard, self.moves = gomill.sgf_moves.get_setup_and_moves(self.sgfgame)
-            self.initialboard = Board(self.size, self.sgfboard.copy().board)
+            self.sgfboard, sgfmoves = gomill.sgf_moves.get_setup_and_moves(self.sgfgame)
+            self.moves = tuple((sgfmovemap[color], coord) for color, coord in sgfmoves)
+            self.initialboard = Board(self.size, self.sgfboard.copy().board)   # FIXME: Boards are no longer compatible!
             if not self.id:
                 self.id = self._gameid(self.moves, self.size)
             self.description = "%s(%s) vs %s(%s) %s %s" % (self.header.get("PB"),
@@ -152,7 +159,7 @@ class GoGame(object):
                             color.upper(),
                             gomill.sgf_properties.serialise_go_point(coord, self.size)))
 
-                board = Board(self.size, sgfboard.copy().board)
+                board = Board(self.size, sgfboard.copy().board)  # FIXME: Boards are no longer compatible!
                 self.boards.append(board)
                 jsonplays.append('[%d, ["%s", %s], %s]' % (m,
                                                           color,
@@ -175,21 +182,13 @@ class Board(object):
 
     _to_ascii = {
         EMPTY : " ",
-        BLACK : "#",
-        WHITE : "O",
-    }
-
-    _from_ascii = {
-        " "   : EMPTY,
-        "#"   : BLACK,
-        "O"   : WHITE,
+        BLACK : "x",
+        WHITE : "o",
     }
 
     @classmethod
     def from_ascii(cls, size, asciiboard):
-        board = []
-        for row in reversed(asciiboard):
-            board.append([cls._from_ascii[col] for col in row])
+        board = list(reversed(asciiboard))
         return cls(size, board)
 
     def __init__(self, size=0, board=None):
