@@ -22,16 +22,6 @@ import sys
 import subprocess
 import json
 
-import globals as g
-
-def datadirs(dirname):
-    '''Return a list of game relevant data directories, useful for finding data
-        files such as games
-    '''
-    return [os.path.join(g.APPDIR,  dirname),
-            os.path.join(g.DATADIR, dirname),
-            os.path.join(g.USERDIR, dirname)]
-
 
 def safemakedirs(path):
     try:
@@ -53,7 +43,7 @@ def launchfile(filename):
 def prettyjson(obj, indent=1, _lvl=0):
     '''Serialize <obj> to JSON in a compact yet human-friendly format
         Dictionaries and lists of lists are formated one key/item per line
-        Ordinary lists other singletons are packed in a single line
+        Ordinary lists and other singletons are packed in a single line
     '''
     sep = " " * indent
 
@@ -67,7 +57,7 @@ def prettyjson(obj, indent=1, _lvl=0):
 
     # Handle lists of lists
     # Plain text replace is not robust and will break strings that contains "[[", "]]" or "],["
-    # But it's much faster than properly iterating each item
+    # But it's faster than properly iterating each item
     return json.dumps(obj, separators=(',',':')
         ).replace('],[', '],\n%s[' % (sep * _lvl)
         ).replace('[[' , '[\n%s['  % (sep * _lvl)
