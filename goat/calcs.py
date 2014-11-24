@@ -21,9 +21,9 @@ import os
 import logging
 import json
 
-import matplotlib.pyplot as plt  # Debian: python-matplotlib
-import numpy  # Debian: python-numpy
-import scipy.stats  # Debian: python-scipy
+import matplotlib.pyplot as plt
+import numpy
+import scipy.stats
 
 import globals as g
 import ascii

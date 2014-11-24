@@ -25,7 +25,7 @@ import ConfigParser
 import shutil
 import time
 
-import progressbar  # Debian: python-progressbar
+import progressbar
 
 import globals as g
 import calcs

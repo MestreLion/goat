@@ -21,7 +21,6 @@ import os
 import logging
 import json
 
-# Pypi: gomill
 import gomill.sgf
 import gomill.sgf_moves
 import gomill.sgf_properties
