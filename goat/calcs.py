@@ -100,6 +100,15 @@ class Hook(object):
     def display(self):
         pass
 
+    def _save_data(self, pretty=True, indent=1):
+        datafile = os.path.join(g.USERDIR, 'hooks', self.__class__.__name__.lower(), 'data.json')
+        utils.safemakedirs(os.path.dirname(datafile))
+        with open(datafile, 'w') as fp:
+            if pretty:
+                fp.write(utils.prettyjson(self.data, indent=indent) + '\n')
+            else:
+                json.dump(self.data, fp, sort_keys=True, separators=(',', ': '), indent=indent)
+
 
 class MoveHistogram(Hook):
     '''Histogram of number of moves moves per game'''
@@ -114,10 +123,7 @@ class MoveHistogram(Hook):
         self.data[game.id] = moves
 
     def end(self):
-        datafile = os.path.join(g.USERDIR, 'hooks', self.__class__.__name__.lower(), 'data.json')
-        utils.safemakedirs(os.path.dirname(datafile))
-        with open(datafile, 'w') as fp:
-            json.dump(self.data, fp, sort_keys=True, separators=(',', ': '), indent=0)
+        self._save_data(pretty=False, indent=0)
 
         moves = sorted(self.data.values())
         games = len(moves)
@@ -224,19 +230,16 @@ class TimeLine(Hook):
             chart.plot(self.gamedata['stnwhite'], color="blue", lw=2, label="White stones")
             chart.plot(self.gamedata['priblack'], color="red",  label="Black captured")
             chart.plot(self.gamedata['priwhite'], color="blue", label="White captured")
-            chart.set(title="Stones per Move\n%s (%d moves)" % (game.description,
-                                                                self.gamedata['nummoves']),
+            chart.set(title="Stones per Move - Game %s\n%s (%d moves)" % (game.id.upper(),
+                                                                          game.description,
+                                                                          self.gamedata['nummoves']),
                       xlabel="Moves", ylabel="Stones", loc=2)
             chart.save("timeline_%s" % game.id)
             chart.close()
             self.end()
 
     def end(self):
-        datafile = os.path.join(g.USERDIR, 'hooks', self.__class__.__name__.lower(), 'data.json')
-        utils.safemakedirs(os.path.dirname(datafile))
-        with open(datafile, 'w') as fp:
-            fp.write(utils.prettyjson(self.data) + '\n')
-            #json.dump(self.data, fp, sort_keys=True)
+        self._save_data()
 
         games = len(self.data)
         result = {key: tuple(gamedata[key] for gamedata in self.data.itervalues()) for key in self.gamedata}
