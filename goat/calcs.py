@@ -71,7 +71,10 @@ class Chart(object):
         self.ax.tick_params(axis='both', which='major', labelsize=8)
 
     def save(self, name):
-        for ext in ['png', 'eps', 'svg']:
+        exts = ['svg']
+        if g.options.publish:
+            exts.extend(['png', 'eps'])
+        for ext in exts:
             path = os.path.join(g.RESULTSDIR, "%s.%s" % (name, ext))
             self.fig.savefig(path, dpi=240)
         #launchfile(path)
@@ -442,75 +445,130 @@ class StonesPerSquare(Hook):
 
 
 class FractalDimension(Hook):
-    def __init__(self, size):
+    '''LogLog angular coefficient of stones per increasing squares from corners'''
+
+    def __init__(self, size, lbound=5, ubound=15):
+        super(FractalDimension, self).__init__(size)
         self.size = size
-        self.games = 0
-        limits = (0, self.size - 1)
-        self.corners = (StoneCountCenterPoint((limits[0], limits[0]), "Lower Left",  "red",    limits),
-                       StoneCountCenterPoint((limits[0], limits[1]), "Lower Right", "green",  limits),
-                       StoneCountCenterPoint((limits[1], limits[0]), "Upper Left",  "blue",   limits),
-                       StoneCountCenterPoint((limits[1], limits[1]), "Upper Right", "orange", limits),
-                       #StoneCountCenterPoint(2*(limits[1]/2,), "Center", "black", limits),
-                       )
-        self.totalstones = []
+        self.lbound = lbound
+        self.ubound = ubound
+        self.sides = tuple(xrange(self.lbound, self.ubound+1))
+        self.logsides = numpy.log(self.sides)  # ln(5...15)
+        self.quadrants = []
 
+        edges = (0, self.size - 1)
+        self.corners = dict(
+            lowerleft  = CornerPoint(self.size, (edges[0], edges[0]), "Lower Left",  "red"),
+            lowerright = CornerPoint(self.size, (edges[0], edges[1]), "Lower Right", "green"),
+            upperleft  = CornerPoint(self.size, (edges[1], edges[0]), "Upper Left",  "blue"),
+            upperright = CornerPoint(self.size, (edges[1], edges[1]), "Upper Right", "orange"),
+        )
 
-    def gameover(self, game, board, chart=False, discard=False):
-        if discard:
-            return
+    def gameover(self, game, board, chart=False):
+        if not game.boards:
+            game.play()
+            board = game.boards[-1]
 
-        self.games += 1
-        if self.games % 10000 == 0:
-            chart = True
+        gamedata = dict(
+            absolute = dict(average      = [],
+                            lowerleft    = [],
+                            lowerright   = [],
+                            upperleft    = [],
+                            upperright   = [],),
+            relative = dict(start        = [],
+                            opposite     = [],
+                            clockwise    = [],
+                            counterclock = []),
+        )
 
-        for corner in self.corners:
+        for key, corner in self.corners.items():
             stones = 0
-            corner.stones = []
+            corner.data = dict(lin=[], log=[], coeffs=[])
             for perimeter in corner.perimeters:
                 for point in perimeter:
-                    if board.get(*point) is not None:
+                    if not board.get(*point) == gogame.EMPTY:
                         stones += 1
-                corner.stones.append(stones)
+                corner.data['lin'].append(stones)
 
-        gamestones = []
-        corners = float(len(self.corners))
-        for perimeter in xrange(self.size):
-            stones = 0
-            for corner in self.corners:
-                stones += corner.stones[perimeter]
-            if stones > 0:
-                gamestones.append(stones / corners)
+            corner.data['log'] = tuple(numpy.log(corner.data['lin'][self.lbound-1:self.ubound]))  # ln(data[4]...data[14])
+            corner.data['coeffs'] = tuple(numpy.polyfit(self.logsides, corner.data['log'], deg=1))
 
-        samples = len(gamestones)
-        squaresides = list(xrange(1 + self.size - samples, self.size + 1))
-        logx = numpy.log(squaresides)
-        logy = numpy.log(gamestones)
-        coeffs = numpy.polyfit(logx, logy, deg=1)
-        poly = numpy.poly1d(coeffs)
-        yfit = lambda x: numpy.exp(poly(numpy.log(x)))
 
-        self.totalstones.append(coeffs[0])
+            gamedata['absolute'][key] = corner.data
 
-        if chart:
-            figavg = Chart()
-            figavg.plot(squaresides, gamestones, 'bo', label="Game Data")
-            figavg.plot(squaresides, yfit(squaresides), 'r-', label="Linear Regression")
-            figavg.set(loc=2, xlabel="Square Side", ylabel="Stones", loglog=True,
-                       title="Stones per increasing squares - Game %s, m = %.2f" % (game.name, coeffs[0]))
-            figavg.save("fractal_%s_log" % game.name)
-            figavg.close()
+        self.data[game.id] = gamedata
 
-            figlin = Chart()
-            figlin.plot(squaresides, gamestones, label="Stones", color="red")
-            figlin.set(loc=2, xlabel="Square Side", ylabel="Stones",
-                       title="Stones per increasing squares - Game %s" % game.name)
-            figlin.save("fractal_%s" % game.name)
-            figlin.close()
 
-            log.info("Games processed: %d", self.games)
-            self.end()
+
+#         gamestones = []
+#         corners = float(len(self.corners))
+#         for perimeter in xrange(self.size):
+#             stones = 0
+#             for corner in self.corners:
+#                 stones += corner.stones[perimeter]
+#             if stones > 0:
+#                 gamestones.append(stones / corners)
+
+        if True or chart:
+            linplot = Chart()
+            for corner in self.corners.values():
+                linplot.plot(corner.data['lin'], label=corner.label, color=corner.color)
+            linplot.set(xlabel="Square Side", ylabel="Stones",
+                        title="Stones per corner squares - Game %s\n%s" % (game.id.upper(),
+                                                                           game.description))
+            linplot.save("fractal_%s_linear" % game.id)
+            linplot.close()
+
+            def _line_y(x, coefs):
+                def y(x):
+                    return x * coefs[0] + coefs[1]
+                return map(y, x)
+
+            logplot = Chart()
+            for corner in self.corners.values():
+                poly = numpy.poly1d(corner.data['coeffs'])
+                yfit = lambda x: numpy.exp(poly(numpy.log(x)))
+
+                logplot.plot(self.sides, corner.data['lin'][self.lbound-1:self.ubound], 'bo',
+                             color=corner.color,
+                             label=corner.label)
+                logplot.plot(self.sides, yfit(self.sides), 'r-',
+                             color=corner.color,
+                             label="m=%.2f" % corner.data['coeffs'][0])
+            logplot.set(xlabel="Square Side", ylabel="Stones", loglog=True,
+                        title="Stones per corner squares - Game %s\n%s - LogLog (m = %.2f)" % (
+                            game.id.upper(), game.description, 0.0))
+            logplot.save("fractal_%s_loglog" % game.id)
+            logplot.close()
+
+
+
+
+#         self.totalstones.append(coeffs[0])
+#
+#         if chart:
+#             figavg = Chart()
+#             figavg.plot(squaresides, gamestones, 'bo', label="Game Data")
+#             figavg.plot(squaresides, yfit(squaresides), 'r-', label="Linear Regression")
+#             figavg.set(loc=2, xlabel="Square Side", ylabel="Stones", loglog=True,
+#                        title="Stones per increasing squares - Game %s, m = %.2f" % (game.name, coeffs[0]))
+#             figavg.save("fractal_%s_log" % game.name)
+#             figavg.close()
+#
+#             figlin = Chart()
+#             figlin.plot(squaresides, gamestones, label="Stones", color="red")
+#             figlin.set(loc=2, xlabel="Square Side", ylabel="Stones",
+#                        title="Stones per increasing squares - Game %s" % game.name)
+#             figlin.save("fractal_%s" % game.name)
+#             figlin.close()
+#
+#             log.info("Games processed: %d", self.games)
+#             self.end()
 
     def end(self):
+        self._save_data()
+
+        return
         games = len(self.totalstones)
         chart = Chart()
         chart.ax.hist(self.totalstones, bins=20)
@@ -520,11 +578,52 @@ class FractalDimension(Hook):
         chart.close()
 
 
+class CornerPoint(object):
+    def __init__(self, size, point, label, color):
+        self.data  = None
+        self.point = point
+        self.label = label
+        self.color = color
+
+        limits = (0, size - 1)
+        self.perimeters = []
+        for i in xrange(size):
+            self.perimeters.append(self._square_perimeter_points(i, limits))
+
+
+    def _square_perimeter_points(self, distance, limits):
+        points = []
+
+        def append(point):
+            if (limits[0] <= point[0] <= limits[1] and
+                limits[0] <= point[1] <= limits[1]):
+                points.append(point)
+
+        if distance == 0:
+            append(self.point)
+            return points
+
+        # Bottom and Top rows
+        for x in xrange(self.point[0] - distance,
+                        self.point[0] + distance + 1):
+            append((x, self.point[1] - distance))
+            append((x, self.point[1] + distance))
+
+        # Left and Right columns (excluding corners)
+        for y in xrange(self.point[1] - distance + 1,
+                        self.point[1] + distance - 1 + 1):
+            append((self.point[0] - distance, y))
+            append((self.point[0] + distance, y))
+
+        return points
+
+
 class StoneCountCenterPoint(object):
     def __init__(self, point, label, color, limits):
         self.point = point
         self.label = label
         self.color = color
+        self.key   = self.label.lower().replace(" ", "")
 
         self.corner = self.point[0] in limits and self.point[1] in limits
 

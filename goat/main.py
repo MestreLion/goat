@@ -100,6 +100,9 @@ def main(argv=None):
     subparser.add_argument('--games', '-g', dest='games', default=0, type=int, metavar="NUM",
                            help="Compute at most NUM games. 0 for all games.")
 
+    subparser.add_argument('--publish', '-p', dest='publish', default=False, action="store_true",
+                           help="Publish run: generate charts and results in all formats.")
+
     subparser = subparsers.add_parser('display', help="Display analysis results")
 
     if argv is None:
@@ -130,9 +133,9 @@ def compute():
 #        calcs.StonesPerSquare(g.options.board_size),
 #        calcs.LibertiesPerMove(g.options.board_size),
 #        calcs.Territories(g.options.board_size),
-#        calcs.FractalDimension(g.options.board_size),
-        calcs.TimeLine(g.options.board_size),
-        calcs.MoveHistogram(g.options.board_size),
+        calcs.FractalDimension(g.options.board_size),
+#        calcs.TimeLine(g.options.board_size),
+#        calcs.MoveHistogram(g.options.board_size),
     ]
 
     gameids = list(library.gameids(g.options.games))
@@ -182,9 +185,9 @@ def display():
 #        calcs.StonesPerSquare(g.options.board_size),
 #        calcs.LibertiesPerMove(g.options.board_size),
 #        calcs.Territories(g.options.board_size),
-#        calcs.FractalDimension(g.options.board_size),
-        calcs.TimeLine(g.options.board_size),
-        calcs.MoveHistogram(g.options.board_size),
+        calcs.FractalDimension(g.options.board_size),
+#        calcs.TimeLine(g.options.board_size),
+#        calcs.MoveHistogram(g.options.board_size),
     ]
     for hook in hooks:
         hook.display()
