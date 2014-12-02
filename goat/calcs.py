@@ -140,6 +140,7 @@ class MoveHistogram(Hook):
 
         array = numpy.array(moves)
         minmoves = numpy.min(array)
+        mean = numpy.mean(array)
         maxmoves = numpy.max(array)
         mode, count = scipy.stats.mode(array)
         numpy.std(array)
@@ -148,7 +149,7 @@ class MoveHistogram(Hook):
                 "Std=%.01f, Skew=%.03f, Kurtosis=%.03f" % (
                     games,
                     minmoves,
-                    numpy.mean(array),
+                    mean,
                     mode, count,
                     maxmoves,
                     numpy.std(array),
@@ -160,10 +161,6 @@ class MoveHistogram(Hook):
         binwidth = 1
         bins = range(minmoves, maxmoves + binwidth + 1, binwidth)
 
-        chart = Chart()
-        chart.ax.hist(moves, bins=bins, label="Histogram")
-        chart.set(xlabel="Moves", ylabel="Games of n moves", loc=2, title=title)
-
         survivors = []
         gamesleft = games
         i = 0
@@ -173,11 +170,40 @@ class MoveHistogram(Hook):
                 i += 1
             survivors.append(gamesleft)
 
+        chart = Chart()
+        chart.ax.hist(moves, bins=bins, label="Histogram")
+        chart.set(xlabel="Moves", ylabel="Games of n moves", loc=2, title=title)
         chart.ax = chart.ax.twinx()
         chart.plot(survivors, label="Games left",  color="red")
         chart.set(loc=3, ylabel="Games of at least n moves")
-
         chart.save("move_histogram_%s" % games)
+        chart.close()
+
+        hist_y, hist_x = numpy.histogram(moves, bins=bins)
+        hist_x = hist_x[:-1]  # last element is last bin upper edge, == max moves + 1
+        log_y = numpy.log(hist_y)
+
+        chart = Chart()
+        chart.plot(hist_x, log_y, label="Log(y) vs x")
+        chart.set(xlabel="Moves", ylabel="Log(games of n moves)", loc=2,
+                  title="%s\nLog(y) vs x" % title.split('\n')[0])
+        chart.save("move_histogram_%s_logy_x" % games)
+        chart.close()
+
+        log_x = numpy.log(hist_x)
+        chart = Chart()
+        chart.plot(log_x, log_y, label="Log(y) vs Log(x)")
+        chart.set(xlabel="Log(moves)", ylabel="Log(games of n moves)", loc=2,
+                  title="%s\nLog(y) vs Log(x)" % title.split('\n')[0])
+        chart.save("move_histogram_%s_logy_logx" % games)
+        chart.close()
+
+        diffsquared = sorted(map(lambda x: (x - mean)**2, hist_x))
+        chart = Chart()
+        chart.plot(diffsquared, log_y, label="Log(y) vs (x - mean)^2")
+        chart.set(xlabel="[moves - mean(moves)]^2", ylabel="Log(games of n moves)", loc=2,
+                  title="%s\nLog(y) vs (x - mean)^2" % title.split('\n')[0])
+        chart.save("move_histogram_%s_logy_diffsquared" % games)
         chart.close()
 
     def _save_result(self, games, moves):
