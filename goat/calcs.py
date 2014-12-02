@@ -71,7 +71,10 @@ class Chart(object):
         self.ax.tick_params(axis='both', which='major', labelsize=8)
 
     def save(self, name):
-        for ext in ['png', 'eps', 'svg']:
+        exts = ['png']
+        if g.options.publish:
+            exts.extend(['svg', 'eps'])
+        for ext in exts:
             path = os.path.join(g.RESULTSDIR, "%s.%s" % (name, ext))
             self.fig.savefig(path, dpi=240)
         #launchfile(path)

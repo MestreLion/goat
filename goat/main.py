@@ -84,6 +84,9 @@ def main(argv=None):
     parser.add_argument('--board-size', '-b', dest='board_size', default=board_size, type=int,
                            help="Board size. Default: %d" % board_size)
 
+    parser.add_argument('--publish', '-p', dest='publish', default=False, action="store_true",
+                        help="Publish run: generate charts and results in all formats.")
+
     subparsers = parser.add_subparsers(dest="command")
 
     subparser = subparsers.add_parser('import', help="Import games from sources to Library")
