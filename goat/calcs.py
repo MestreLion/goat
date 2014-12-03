@@ -380,18 +380,45 @@ class Severity(Hook):
     def display(self, capture=1):
         data = sorted([tuple(_[capture-1]) for _ in self.data.itervalues() if len(_) >= capture])  # nth capture
         games = len(self.data)
-        nocapture = games - len(data)
+        self._save_result(games, data)
+        capturegames = len(data)
         deltas, severities = zip(*data)
         mode, count = collections.Counter(data).most_common(1)[0]
+
         chart = Chart()
         chart.plot(deltas, severities, 'bo')
         chart.set(title="Severity Scatter - First capture of %d games\nMode = %s x %d, %d games with no capture" % (
-                        games, mode, count, nocapture),
+                        games, mode, count, games - capturegames),
                   xlabel="Moves to first capture", ylabel="Prisoners in first capture", legend=False)
         chart.save("severity_%s" % games)
         chart.close()
 
-        self._save_result(games, data)
+        binwidth = 1
+        for array, name, desc in [(deltas, "moves", "Moves to first capture"),
+                                  (severities, "prisoners", "Prisoners in first capture")]:
+            arraymin = numpy.min(array)
+            arraymax = numpy.max(array)
+            bins = range(arraymin, arraymax + binwidth + 1, binwidth)
+            mode, count = scipy.stats.mode(array)
+            title = ("Severity Histogram of %d out of %d games - %s\n"
+                     "Min=%d, Avg=%.01f, Mode=%d (x %d), Max=%d\n"
+                     "Std=%.01f, Skew=%.03f, Kurtosis=%.03f" % (
+                        capturegames, games, desc,
+                        arraymin,
+                        numpy.mean(array),
+                        mode, count,
+                        arraymax,
+                        numpy.std(array),
+                        scipy.stats.skew(array),
+                        scipy.stats.kurtosis(array),
+                        ))
+            log.info(title)
+            chart = Chart()
+            chart.ax.hist(array, bins=bins)
+            chart.set(title=title, legend=False)
+            chart.save("severity_%s_%s_histogram" % (games, name))
+            chart.close()
+
 
     def _save_result(self, games, data):
         resultsfile = os.path.join(g.RESULTSDIR, "severity_%s.json" % games)
