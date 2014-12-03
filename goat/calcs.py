@@ -20,6 +20,7 @@
 import os
 import logging
 import json
+import collections
 
 import matplotlib.pyplot as plt
 import numpy
@@ -372,18 +373,28 @@ class Severity(Hook):
 
     def end(self):
         self._save_data()
-#
-#         games = len(self.data)
-#         result = {key: tuple(gamedata[key] for gamedata in self.data.itervalues()) for key in self.gamedata}
-#         result['nummoves'] = tuple(sorted(result['nummoves']))
-#
-#         self._save_result(games, result)
+        games = len(self.data)
+        results = sorted([_[0] for _ in self.data.itervalues() if _])  # first capture, if any
+        self._save_result(games, results)
 
-    def display(self):
-        return
+    def display(self, capture=1):
+        data = sorted([tuple(_[capture-1]) for _ in self.data.itervalues() if len(_) >= capture])  # nth capture
+        games = len(self.data)
+        nocapture = games - len(data)
+        deltas, severities = zip(*data)
+        mode, count = collections.Counter(data).most_common(1)[0]
+        chart = Chart()
+        chart.plot(deltas, severities, 'bo')
+        chart.set(title="Severity Scatter - First capture of %d games\nMode = %s x %d, %d games with no capture" % (
+                        games, mode, count, nocapture),
+                  xlabel="Moves to first capture", ylabel="Prisoners in first capture", legend=False)
+        chart.save("severity_%s" % games)
+        chart.close()
+
+        self._save_result(games, data)
 
     def _save_result(self, games, data):
-        resultsfile = os.path.join(g.RESULTSDIR, "timeline_%s.json" % games)
+        resultsfile = os.path.join(g.RESULTSDIR, "severity_%s.json" % games)
         with open(resultsfile, 'w') as fp:
             fp.write(utils.prettyjson(data) + '\n')
 
