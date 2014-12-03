@@ -85,12 +85,7 @@ class Chart(object):
 
 class Hook(object):
     def __init__(self, size):
-        try:
-            datafile = os.path.join(g.USERDIR, 'hooks', self.__class__.__name__.lower(), 'data.json')
-            with open(datafile, 'r') as fp:
-                self.data = json.load(fp)
-        except (IOError, ValueError):
-            self.data = {}
+        self.data = self._load_data(self.__class__.__name__)
 
     def gamestart(self, game, board, chart=False):
         pass
@@ -102,6 +97,14 @@ class Hook(object):
         pass
     def display(self):
         pass
+
+    def _load_data(self, hookname, dataname="data"):
+        try:
+            datafile = os.path.join(g.USERDIR, 'hooks', hookname.lower(), '%s.json' % dataname)
+            with open(datafile, 'r') as fp:
+                return json.load(fp)
+        except (IOError, ValueError):
+            return {}
 
     def _save_data(self, pretty=True, indent=1):
         datafile = os.path.join(g.USERDIR, 'hooks', self.__class__.__name__.lower(), 'data.json')
@@ -228,6 +231,7 @@ class TimeLine(Hook):
                              stnwhite = [0],
                              priblack = [0],
                              priwhite = [0],
+                             captured = [0],
                              nummoves = len(game.moves))
 
     def move(self, game, board, move):
@@ -244,6 +248,8 @@ class TimeLine(Hook):
             whitescaptured = 0
         else:  # pass
             blackscaptured = whitescaptured = 0
+
+        self.gamedata['captured'].append(blackscaptured + whitescaptured)
 
         self.gamedata['priblack'].append(self.gamedata['priblack'][-1] + blackscaptured)
         self.gamedata['priwhite'].append(self.gamedata['priwhite'][-1] + whitescaptured)
@@ -320,6 +326,61 @@ class TimeLine(Hook):
         chart.save("timeline_%d" % games)
         chart.close()
 
+    def _save_result(self, games, data):
+        resultsfile = os.path.join(g.RESULTSDIR, "timeline_%s.json" % games)
+        with open(resultsfile, 'w') as fp:
+            fp.write(utils.prettyjson(data) + '\n')
+
+
+class Severity(Hook):
+    '''For each capture, how many stones were captured and how many moves did it take since last capture
+        Uses data from TimeLine
+    '''
+
+    def __init__(self, size):
+        super(Severity, self).__init__(size)
+        self.timeline = self._load_data("TimeLine")
+        self.gamedata = []
+
+    def gameover(self, game, board, chart=False):
+        self.gamedata = []
+        deltamoves = 0
+        for prisoners in self.timeline[game.id]["captured"][1:]:
+            deltamoves += 1
+            if prisoners > 0:
+                self.gamedata.append((deltamoves, prisoners))
+                deltamoves = 0
+
+        self.data[game.id] = self.gamedata
+        if chart:
+            deltalist, severitylist = zip(*self.gamedata)
+            chart = Chart()
+            chart.plot(deltalist, severitylist, 'bo:')
+            for i, pos in enumerate(self.gamedata, 1):
+                xpos, ypos = pos
+                chart.ax.annotate(i, (xpos+0.1, ypos+0.05), size=8, color="blue")
+            chart.set(title="Severity Scatter - Game %s\n%s\n%d moves, %d captures, 1st capture at %s" % (
+                                game.id.upper(),
+                                game.description,
+                                len(game.moves),
+                                len(self.gamedata),
+                                self.gamedata[0]),
+                      xlabel="Moves since last capture", ylabel="Stones captured", legend=False)
+            chart.save("severity_%s" % game.id)
+            chart.close()
+            self.end()
+
+    def end(self):
+        self._save_data()
+#
+#         games = len(self.data)
+#         result = {key: tuple(gamedata[key] for gamedata in self.data.itervalues()) for key in self.gamedata}
+#         result['nummoves'] = tuple(sorted(result['nummoves']))
+#
+#         self._save_result(games, result)
+
+    def display(self):
+        return
 
     def _save_result(self, games, data):
         resultsfile = os.path.join(g.RESULTSDIR, "timeline_%s.json" % games)
