@@ -340,8 +340,9 @@ class Severity(Hook):
 
     def __init__(self, size):
         super(Severity, self).__init__(size)
-        self.timeline = self._load_data("TimeLine")
-        self.gamedata = []
+        if g.options.command == "calculate":
+            self.timeline = self._load_data("TimeLine")
+            self.gamedata = []
 
     def gameover(self, game, board, chart=False):
         self.gamedata = []
@@ -415,7 +416,7 @@ class Severity(Hook):
             log.info(title)
             chart = Chart()
             chart.ax.hist(array, bins=bins)
-            chart.set(title=title, legend=False)
+            chart.set(title=title, ylabel="Games", xlabel=desc, legend=False)
             chart.save("severity_%s_%s_histogram" % (games, name))
             chart.close()
 
