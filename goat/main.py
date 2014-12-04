@@ -188,7 +188,7 @@ def display():
 #        calcs.Territories(g.options.board_size),
 #        calcs.FractalDimension(g.options.board_size),
 #        calcs.TimeLine(g.options.board_size),
-#        calcs.MoveHistogram(g.options.board_size),
+        calcs.MoveHistogram(g.options.board_size),
         calcs.Severity(g.options.board_size),
     ]
     for hook in hooks:
