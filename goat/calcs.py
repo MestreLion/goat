@@ -60,13 +60,13 @@ class Chart(object):
         self.ax.plot(*args, **kwargs)
 
     def set(self, title="", xlabel="", ylabel="", loc=0, grid=True, semilog=False, loglog=False, legend=True):
+        if grid:    self.ax.grid()
         if legend:  self.ax.legend(loc=loc, labelspacing=0.2, prop={'size': 8})
         if xlabel:  self.ax.set_xlabel(xlabel, size=10)
         if ylabel:  self.ax.set_ylabel(ylabel, size=10)
         if title:
             size = 12 if title.count('\n') < 2 else 11
             self.ax.set_title(title, size=size)
-        if grid:    self.ax.grid()
         if semilog: self.ax.semilogy()
         if loglog:  self.ax.loglog()
         self.ax.tick_params(axis='both', which='major', labelsize=8)
@@ -115,6 +115,26 @@ class Hook(object):
                 fp.write(utils.prettyjson(self.data, indent=indent) + '\n')
             else:
                 json.dump(self.data, fp, sort_keys=True, separators=(',', ': '), indent=indent)
+
+    def histstats(self, data, binwidth=1):
+        array = numpy.array(data)
+        arraymin  = numpy.min(array)
+        arraymean = numpy.mean(array)
+        arraymax  = numpy.max(array)
+        arraystd  = numpy.std(array)
+        mode, count = scipy.stats.mode(array)
+        desc = ("Min=%d, Avg=%.01f, Max=%d, Mode=%d x %d\n"
+                "Std=%.01f, Skew=%.03f, Kurtosis=%.03f" % (
+                    arraymin,
+                    arraymean,
+                    arraymax,
+                    mode, count,
+                    arraystd,
+                    scipy.stats.skew(array),
+                    scipy.stats.kurtosis(array),
+                ))
+        bins = range(arraymin, arraymax + binwidth + 1, binwidth)
+        return array, desc, bins, arraymean
 
 
 class MoveHistogram(Hook):
@@ -394,32 +414,46 @@ class Severity(Hook):
         chart.save("severity_%s" % games)
         chart.close()
 
-        binwidth = 1
-        for array, name, desc in [(deltas, "moves", "Moves to first capture"),
-                                  (severities, "prisoners", "Prisoners in first capture")]:
-            arraymin = numpy.min(array)
-            arraymax = numpy.max(array)
-            bins = range(arraymin, arraymax + binwidth + 1, binwidth)
-            mode, count = scipy.stats.mode(array)
-            title = ("Severity Histogram of %d out of %d games - %s\n"
-                     "Min=%d, Avg=%.01f, Mode=%d (x %d), Max=%d\n"
-                     "Std=%.01f, Skew=%.03f, Kurtosis=%.03f" % (
-                        capturegames, games, desc,
-                        arraymin,
-                        numpy.mean(array),
-                        mode, count,
-                        arraymax,
-                        numpy.std(array),
-                        scipy.stats.skew(array),
-                        scipy.stats.kurtosis(array),
-                        ))
+        for histdata, name, subtitle in [(severities, "prisoners", "Prisoners in first capture"),
+                                         (deltas, "moves", "Moves to first capture")]:
+            array, desc, bins, mean = self.histstats(histdata)
+            title = "Histogram of %d out of %d games - %s\n%s" % (capturegames, games, subtitle, desc)
             log.info(title)
+
+            hist_y, hist_x = numpy.histogram(array, bins=bins)
+            hist_x = hist_x[:-1]  # last element is last bin upper edge, == max moves + 1
+
             chart = Chart()
-            chart.ax.hist(array, bins=bins)
-            chart.set(title=title, ylabel="Games", xlabel=desc, legend=False)
+            chart.ax.bar(hist_x, hist_y)
+            chart.ax.axvline(mean, color="red", ls='--')
+            chart.set(title=title, xlabel=subtitle, ylabel="Games", legend=False)
             chart.save("severity_%s_%s_histogram" % (games, name))
             chart.close()
 
+            log_y = numpy.ma.log10(hist_y)
+            log_x = numpy.ma.log10(hist_x)
+            diffsquared = sorted(map(lambda x: (x - mean)**2, hist_x))
+
+            chart = Chart()
+            chart.plot(hist_x, log_y, 'bo-', markersize=3)
+            chart.set(xlabel=subtitle, ylabel="Log (games)", legend=False,
+                      title="%s\nLog(y) vs x" % title.split('\n')[0])
+            chart.save("severity_%s_%s_histogram_logy_x" % (games, name))
+            chart.close()
+
+            chart = Chart()
+            chart.plot(log_x, log_y, 'bo-', markersize=3)
+            chart.set(xlabel="Log (%s)" % subtitle, ylabel="Log (games)", legend=False,
+                      title="%s\nLog(y) vs Log(x)" % title.split('\n')[0])
+            chart.save("severity_%s_%s_histogram_logy_logx" % (games, name))
+            chart.close()
+
+            chart = Chart()
+            chart.plot(diffsquared, log_y, 'bo-', markersize=3)
+            chart.set(xlabel="%s - (x - avg(x))^2" % subtitle, ylabel="Log (games)", legend=False,
+                      title="%s\nLog(y) vs (x - avg(x))^2" % title.split('\n')[0])
+            chart.save("severity_%s_%s_histogram_logy_diffsquared" % (games, name))
+            chart.close()
 
     def _save_result(self, games, data):
         resultsfile = os.path.join(g.RESULTSDIR, "severity_%s.json" % games)
