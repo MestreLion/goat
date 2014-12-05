@@ -136,6 +136,14 @@ class Hook(object):
         bins = range(arraymin, arraymax + binwidth + 1, binwidth)
         return array, desc, bins, arraymean
 
+    def histdata(self, data, bins=None):
+        if bins is None:
+            array, _, bins, _ = self.histstats(data)
+        else:
+            array = data
+        yhist, xhist = numpy.histogram(array, bins=bins)
+        return yhist, xhist[:-1]  # last element is last bin upper edge, == max moves + 1
+
 
 class MoveHistogram(Hook):
     '''Histogram of number of moves moves per game'''
@@ -505,19 +513,18 @@ class DensityGradient(Hook):
         results = sorted([(_['stones'], _['normdensities']) for _ in self.data.itervalues()])
         self._save_result(games, results)
 
-    def display(self, capture=1):
+    def display(self, mingames=100):
         games = len(self.data)
         data = {key: tuple(gamedata[key] for gamedata in self.data.itervalues())
                 for key in ['stones', 'normdensities']}
-        data['m'] = tuple(gamedata['coeffs'][0] for gamedata in self.data.itervalues())
-        self._save_result(games, data)
 
         array, desc, bins, mean = self.histstats(data['stones'])
+        yhist, stones = self.histdata(array, bins)
         title = "Stones Histogram of %d games\n%s" % (games, desc)
         log.info(title)
 
         chart = Chart()
-        chart.ax.hist(array, bins=bins, edgecolor='blue')
+        chart.ax.bar(stones, yhist, edgecolor='blue', width=1)
         chart.ax.axvline(mean, color="red", ls='--')
         chart.set(title=title, xlabel="Stones on board at game end", ylabel="Games", legend=False)
         chart.save("densitygradient_%s_stones_histogram" % games)
@@ -525,19 +532,51 @@ class DensityGradient(Hook):
 
         normdensities = numpy.mean(data['normdensities'], axis=0)
         coeffs = tuple(numpy.polyfit(self.xaxis, normdensities, deg=1))
+        title = "Density Gradient of %d games\nAverage of %.01f stones, board density %.03f" % (
+                    games, mean, mean/self.totalarea)
+        log.info(title)
+        log.info("m=%.05f, normalized densities=%r", coeffs[0], normdensities)
 
         chart = Chart()
         chart.plot(self.xaxis, normdensities, 'bo-', label="Data")
-        chart.plot(self.xaxis, numpy.poly1d(coeffs)(self.xaxis), 'r-', label="LinReg, m=%.03f" % coeffs[0])
-        chart.set(title="Density Gradient of %d games\nAverage of %.01f stones, board density %.03f" % (
-                            games,
-                            mean,
-                            mean/self.totalarea),
+        chart.plot(self.xaxis, numpy.poly1d(coeffs)(self.xaxis), 'r-', label="LinReg, m=%.05f" % coeffs[0])
+        chart.set(title=title,
                   xlabel="Distance from board edge\nPerimeters of width %d" % self.width,
                   ylabel="Normalized stone density")
         chart.save("densitygradient_%s_density" % games)
         chart.close()
 
+        densitiesperstones = {stone: list() for stone in stones}
+        for game in self.data.itervalues():
+            densitiesperstones[game["stones"]].append(game['normdensities'])
+
+        self._save_result(games, densitiesperstones)
+
+        data = []
+        totalgames = 0
+        for stone, densities in densitiesperstones.iteritems():
+            numgames = len(densities)
+            if numgames >= mingames:  # some stone count might have no game
+                data.append((stone,
+                             numgames,
+                             numpy.polyfit(self.xaxis, numpy.mean(densities, axis=0), deg=1)[0]))
+                totalgames += numgames
+
+        stones, numgames, slopes = zip(*data)
+        log.info("Min slope = %.05f, Max slope = %.05f", min(slopes), max(slopes))
+
+        chart = Chart()
+        chart.plot(stones, slopes, color='red', marker='o', markersize=3, label="Slope")
+        chart.set(title="Density gradient slopes per stone count of %d out of %d games\n"
+                        "Only stone counts of at least %d games" % (totalgames, games, mingames),
+                  xlabel="Stones on board at game end",
+                  ylabel="Gradient slope of densities per perimeter of width %d" % self.width,
+                  loc=2)
+        chart.ax = chart.ax.twinx()
+        chart.plot(stones, numgames, label="Games", color="blue", ls=":")
+        chart.set(ylabel="Games", loc=1)
+        chart.save("densitygradient_%s_slope" % games)
+        chart.close()
 
     def _save_result(self, games, data):
         resultsfile = os.path.join(g.RESULTSDIR, "densitygradient_%s.json" % games)
