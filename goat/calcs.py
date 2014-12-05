@@ -239,9 +239,7 @@ class TimeLine(Hook):
                              nummoves = len(game.moves))
 
     def move(self, game, board, move):
-        chars = ''.join(board.board)
-        blacks = chars.count(gogame.BLACK)
-        whites = chars.count(gogame.WHITE)
+        blacks, whites = board.stonecount()
 
         color, _ = move
         if   color == gogame.BLACK:
@@ -786,11 +784,11 @@ class LibertiesPerMove(Hook):
         chart.close()
 
 
-
 class Territory(object):
     def __init__(self):
         self.points = []
         self.color = None
+
 
 class Territories(Hook):
     def __init__(self, size):

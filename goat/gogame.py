@@ -203,8 +203,8 @@ class Board(object):
     def get(self, row, col):
         return self.board[row][col]
 
-    def set(self, row, col, value):
-        self.board[row][col] = value
+    def set(self, color, row, col):
+        self.board[row][col] = color
 
     def points(self):
         for row in xrange(self.size):
@@ -222,3 +222,92 @@ class Board(object):
             for col in xrange(self.size):
                 line += self._to_ascii[self.board[row][col]]
             yield line
+
+    def ascii(self, black="#", white="o", empty=" "):
+        # TODO: could be vastly improved by exploiting board internal format
+
+        mapping = {
+            EMPTY : " " + empty,
+            BLACK : " " + black,
+            WHITE : " " + white,
+            }
+
+        def format_pt(row, col):
+            return mapping.get(self.get(row, col), " ?")
+
+        def grid(point_formatter, size):
+            column_header_string = " ".join("%02d" % i for i in xrange(size))
+            result = []
+            if size > 9:
+                rowstart = "%2d "
+                padding = " "
+            else:
+                rowstart = "%d "
+                padding = ""
+            for row in range(size-1, -1, -1):
+                result.append(rowstart % (row) +
+                              " ".join(point_formatter(row, col)
+                              for col in range(size)))
+            result.append(padding + "  " + column_header_string)
+            return result
+
+        return "\n".join(grid(format_pt, self.size))
+
+    def stonecount(self):
+        chars = ''.join(self.board)
+        return (chars.count(BLACK),
+                chars.count(WHITE))
+
+    @classmethod
+    def paintboard(cls, size, width=1, points=None):
+        if points is None:
+            points = cls.perimeters(size, width)
+        board = cls(size)
+        for i, perimeter in enumerate(points):
+            assert len(perimeter) == len(set(perimeter))
+            color = [BLACK, WHITE][i % 2]
+            for point in perimeter:
+                board.set(color, *point)
+        print board.ascii()
+
+    @classmethod
+    def square(cls, size, corner=(0,0)):
+        return cls.perimeters(size=size, width=size, maxperimeters=1, corner=corner)
+
+    @classmethod
+    def perimeters(cls, size, width=1, maxperimeters=0, corner=(0,0)):
+        if width <= 0:
+            return []
+
+        perimeterslist = []
+
+        for _ in xrange(maxperimeters or size):  # actually, math.ceil(size / (2.0 * width))
+            if size <= 0:
+                break
+
+            points = []
+            for w in xrange(width):
+                side = size - 2 * w
+                length = side - 1
+                xstart, ystart = corner[0] + w, corner[1] + w
+
+                if side <= 0:
+                    break
+
+                elif side == 1: # 1x1 center
+                    points.append((xstart, ystart))
+                    break
+
+                for i in xrange(length):
+                    points.append((xstart + i,      ystart))
+                    points.append((xstart + i + 1,  ystart + length))
+                    points.append((xstart + length, ystart + i))
+                    points.append((xstart,          ystart + i + 1))
+
+            perimeterslist.append(points)
+
+            size = size - 2 * width
+            corner = (corner[0] + width,
+                      corner[1] + width)
+
+        return perimeterslist
