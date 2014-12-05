@@ -442,6 +442,109 @@ class Severity(Hook):
             fp.write(utils.prettyjson(data) + '\n')
 
 
+class DensityGradient(Hook):
+    '''Density of end game stones in concentric board perimeters'''
+
+    def __init__(self, size, width=2):
+        super(DensityGradient, self).__init__(size)
+        self.width = width
+
+        perimeters = gogame.Board.perimeters(size, width=self.width)
+        areas = [float(len(_)) for _ in perimeters]
+        self.perimeterareas = zip(perimeters, areas)
+        self.xaxis = range(0, len(perimeters) * self.width, width)
+
+        self.totalarea = float(size**2)
+
+    def gamestart(self, game, board, chart=False):
+        if not game.boards:
+            game.play()
+
+    def gameover(self, game, board, chart=False):
+        totalstones = sum(board.stonecount())
+        totaldensity = totalstones / self.totalarea
+        normdensities = []
+        absdensities = []
+
+        for perimeter, area in self.perimeterareas:
+            stones = 0
+            for point in perimeter:
+                if not board.get(*point) == gogame.EMPTY:
+                    stones += 1
+            density = stones / area
+            absdensities.append(density)
+            normdensities.append(density/totaldensity)
+
+        coeffs = tuple(numpy.polyfit(self.xaxis, normdensities, deg=1))
+        # As a reference, 'm' over normalized densities == 'm' over absolute densities * totaldensity
+
+        self.data[game.id] = dict(absdensities=absdensities,
+                                  normdensities=normdensities,
+                                  coeffs=coeffs,
+                                  stones=totalstones,
+                                  density=totaldensity)
+
+        if chart:
+            chart = Chart()
+            chart.plot(self.xaxis, normdensities, 'bo-', label="Data")
+            chart.plot(self.xaxis, numpy.poly1d(coeffs)(self.xaxis), 'r-', label="LinReg, m=%.03f" % coeffs[0])
+            chart.set(title="Density Gradient - Game %s\n%s\n%d stones, board density %.03f" % (
+                                game.id.upper(),
+                                game.description,
+                                totalstones,
+                                totaldensity),
+                      xlabel="Distance from board edge\nPerimeters of width %d" % self.width,
+                      ylabel="Normalized stone density")
+            chart.save("densitygradient_%s" % game.id)
+            chart.close()
+            self.end()
+
+    def end(self):
+        self._save_data()
+        games = len(self.data)
+        results = sorted([(_['stones'], _['normdensities']) for _ in self.data.itervalues()])
+        self._save_result(games, results)
+
+    def display(self, capture=1):
+        games = len(self.data)
+        data = {key: tuple(gamedata[key] for gamedata in self.data.itervalues())
+                for key in ['stones', 'normdensities']}
+        data['m'] = tuple(gamedata['coeffs'][0] for gamedata in self.data.itervalues())
+        self._save_result(games, data)
+
+        array, desc, bins, mean = self.histstats(data['stones'])
+        title = "Stones Histogram of %d games\n%s" % (games, desc)
+        log.info(title)
+
+        chart = Chart()
+        chart.ax.hist(array, bins=bins, edgecolor='blue')
+        chart.ax.axvline(mean, color="red", ls='--')
+        chart.set(title=title, xlabel="Stones on board at game end", ylabel="Games", legend=False)
+        chart.save("densitygradient_%s_stones_histogram" % games)
+        chart.close()
+
+        normdensities = numpy.mean(data['normdensities'], axis=0)
+        coeffs = tuple(numpy.polyfit(self.xaxis, normdensities, deg=1))
+
+        chart = Chart()
+        chart.plot(self.xaxis, normdensities, 'bo-', label="Data")
+        chart.plot(self.xaxis, numpy.poly1d(coeffs)(self.xaxis), 'r-', label="LinReg, m=%.03f" % coeffs[0])
+        chart.set(title="Density Gradient of %d games\nAverage of %.01f stones, board density %.03f" % (
+                            games,
+                            mean,
+                            mean/self.totalarea),
+                  xlabel="Distance from board edge\nPerimeters of width %d" % self.width,
+                  ylabel="Normalized stone density")
+        chart.save("densitygradient_%s_density" % games)
+        chart.close()
+
+
+    def _save_result(self, games, data):
+        resultsfile = os.path.join(g.RESULTSDIR, "densitygradient_%s.json" % games)
+        with open(resultsfile, 'w') as fp:
+            fp.write(utils.prettyjson(data) + '\n')
+
+
 class StonesPerSquare(Hook):
     def __init__(self, size):
         self.size = size
