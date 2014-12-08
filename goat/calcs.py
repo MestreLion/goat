@@ -389,6 +389,22 @@ class Severity(Hook):
 
     def display(self, captures=5):
         games = len(self.data)
+
+        data = sorted([len(_) for _ in self.data.itervalues()])
+        array, desc, bins, mean = self.histstats(data)
+        yhist, xhist = self.histdata(array, bins)
+        title = "Captures Histogram of %d games\n%s" % (games, desc)
+        log.info(title)
+
+        chart = Chart()
+        chart.ax.bar(xhist, yhist, edgecolor='blue', width=1)
+        chart.ax.axvline(mean, color="red", ls='--')
+        chart.set(title=title,
+                  xlabel="Total captures",
+                  ylabel="Games", legend=False)
+        chart.save("severity_%s_captures_histogram" % games)
+        chart.close()
+
         for capture in xrange(1, captures + 1):
             self._display_nth_capture(capture, games)
 
