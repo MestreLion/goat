@@ -190,8 +190,8 @@ def display():
 #        calcs.FractalDimension(g.options.board_size),
 #        calcs.TimeLine(g.options.board_size),
 #        calcs.MoveHistogram(g.options.board_size),
-#        calcs.Severity(g.options.board_size),
-        calcs.DensityGradient(g.options.board_size),
+        calcs.Severity(g.options.board_size),
+#        calcs.DensityGradient(g.options.board_size),
     ]
     for hook in hooks:
         hook.display()

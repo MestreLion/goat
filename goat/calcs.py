@@ -385,26 +385,42 @@ class Severity(Hook):
         self._save_data()
         games = len(self.data)
         results = sorted([_[0] for _ in self.data.itervalues() if _])  # first capture, if any
-        self._save_result(games, results)
+        self._save_result(games, results, "1st")
 
-    def display(self, capture=1):
-        data = sorted([tuple(_[capture-1]) for _ in self.data.itervalues() if len(_) >= capture])  # nth capture
+    def display(self, captures=5):
         games = len(self.data)
-        self._save_result(games, data)
+        for capture in xrange(1, captures + 1):
+            self._display_nth_capture(capture, games)
+
+    def _display_nth_capture(self, n, games):
+        if   n == 1: nth = "1st"
+        elif n == 2: nth = "2nd"
+        elif n == 3: nth = "3rd"
+        else:        nth = "%dth" % n
+
+        data = sorted([tuple(_[n-1]) for _ in self.data.itervalues() if len(_) >= n])  # nth capture
+        self._save_result(games, data, nth)
         capturegames = len(data)
+
         deltas, severities = zip(*data)
         mode, count = collections.Counter(data).most_common(1)[0]
+        title = ("Severity Scatter - %s capture of %d games\n"
+                 "Mode = %s x %d, %d games with less than %d capture%s" %
+                 (nth, games, mode, count, games - capturegames, n,
+                  "s" if n > 1 else ""))
+        log.info(title)
 
         chart = Chart()
         chart.plot(deltas, severities, 'bo')
-        chart.set(title="Severity Scatter - First capture of %d games\nMode = %s x %d, %d games with no capture" % (
-                        games, mode, count, games - capturegames),
-                  xlabel="Moves to first capture", ylabel="Prisoners in first capture", legend=False)
-        chart.save("severity_%s" % games)
+        chart.set(title=title,
+                  xlabel="Moves to %s capture" % nth,
+                  ylabel="Prisoners in %s capture" % nth,
+                  legend=False)
+        chart.save("severity_%s_%s_capture" % (games, nth))
         chart.close()
 
-        for histdata, name, subtitle in [(severities, "prisoners", "Prisoners in first capture"),
-                                         (deltas, "moves", "Moves to first capture")]:
+        for histdata, name, subtitle in [(severities, "prisoners", "Prisoners in %s capture" % nth),
+                                         (deltas, "moves", "Moves to %s capture" % nth)]:
             array, desc, bins, mean = self.histstats(histdata)
             title = "Histogram of %d out of %d games - %s\n%s" % (capturegames, games, subtitle, desc)
             log.info(title)
@@ -416,7 +432,7 @@ class Severity(Hook):
             chart.ax.bar(hist_x, hist_y, edgecolor='blue', width=1)
             chart.ax.axvline(mean, color="red", ls='--')
             chart.set(title=title, xlabel=subtitle, ylabel="Games", legend=False)
-            chart.save("severity_%s_%s_histogram" % (games, name))
+            chart.save("severity_%s_%s_capture_%s_histogram" % (games, nth, name))
             chart.close()
 
             log_y = numpy.ma.log10(hist_y)
@@ -427,25 +443,25 @@ class Severity(Hook):
             chart.plot(hist_x, log_y, 'bo-', markersize=3)
             chart.set(xlabel=subtitle, ylabel="Log (games)", legend=False,
                       title="%s\nLog(y) vs x" % title.split('\n')[0])
-            chart.save("severity_%s_%s_histogram_logy_x" % (games, name))
+            chart.save("severity_%s_%s_capture_%s_histogram_logy_x" % (games, nth, name))
             chart.close()
 
             chart = Chart()
             chart.plot(log_x, log_y, 'bo-', markersize=3)
             chart.set(xlabel="Log (%s)" % subtitle, ylabel="Log (games)", legend=False,
                       title="%s\nLog(y) vs Log(x)" % title.split('\n')[0])
-            chart.save("severity_%s_%s_histogram_logy_logx" % (games, name))
+            chart.save("severity_%s_%s_capture_%s_histogram_logy_logx" % (games, nth, name))
             chart.close()
 
             chart = Chart()
             chart.plot(diffsquared, log_y, 'bo-', markersize=3)
             chart.set(xlabel="%s\n(x - avg(x))^2" % subtitle, ylabel="Log (games)", legend=False,
                       title="%s\nLog(y) vs (x - avg(x))^2" % title.split('\n')[0])
-            chart.save("severity_%s_%s_histogram_logy_diffsquared" % (games, name))
+            chart.save("severity_%s_%s_capture_%s_histogram_logy_diffsquared" % (games, nth, name))
             chart.close()
 
-    def _save_result(self, games, data):
-        resultsfile = os.path.join(g.RESULTSDIR, "severity_%s.json" % games)
+    def _save_result(self, games, data, nth):
+        resultsfile = os.path.join(g.RESULTSDIR, "severity_%s_%s_capture.json" % (games, nth))
         with open(resultsfile, 'w') as fp:
             fp.write(utils.prettyjson(data) + '\n')
 
