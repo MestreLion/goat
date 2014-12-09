@@ -28,6 +28,7 @@ import progressbar
 import globals as g
 import gogame
 import utils
+import xzfile
 
 log = logging.getLogger(__name__)
 
@@ -47,6 +48,7 @@ def extract(filepath, destdir=""):
     driver = None
     if   zipfile.is_zipfile(filepath): driver = zipfile.ZipFile
     elif tarfile.is_tarfile(filepath): driver = tarfile.open
+    elif  xzfile.is_xzfile (filepath): driver = xzfile.xzopen
 
     if not driver:
         raise ExtractError("Invalid archive format")

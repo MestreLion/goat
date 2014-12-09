@@ -28,18 +28,20 @@ Python modules:
 
 - [Matplotlib](http://matplotlib.org)
 
+- [LZMA](https://github.com/peterjc/backports.lzma)
+
 - [Gomill](http://mjw.woodcraft.me.uk/gomill)
 
 To install GOAT and all requirements and modules in Debian/Ubuntu:
 
 Install prerequisites:
 
-	sudo apt-get install git python-pip
+	sudo apt-get install git python-pip liblzma-dev
 
 Install python modules:
 
 	sudo apt-get install python-{progressbar,numpy,scipy,matplotlib}
-	sudo pip install gomill
+	sudo pip install gomill backports.lzma
 
 Checkout the source code:
 
