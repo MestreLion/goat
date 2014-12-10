@@ -75,8 +75,9 @@ def find_games(paths):
                 if ext == "sgf":
                     yield filepath
 
-                elif ext in ['zip', 'gz', 'bz2']:
+                elif ext in ['zip', 'gz', 'bz2', 'xz']:
                     try:
+                        log.info("Processing archive '%s'", filepath)
                         destdir = os.path.join(archivecachedir, name)
                         extract(filepath, destdir)
                         dirs.append(destdir)
