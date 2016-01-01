@@ -113,12 +113,12 @@ def import_sources():
 
     class ImportedGameProgress(progressbar.ProgressBarWidget):
         '''Custom Widget for ProgressBar to track imported games'''
-        def update(self, pbar):
+        def update(self, pbar):  # @UnusedVariable
             return str(games)
 
     class LibraryProgress(progressbar.ProgressBarWidget):
         '''Custom Widget for ProgressBar to track Library size'''
-        def update(self, pbar):
+        def update(self, pbar):  # @UnusedVariable
             size = games + librarysize
             return '%d of %d (%.01f%%)' % (size, g.options.games, 100. * size / g.options.games)
 
