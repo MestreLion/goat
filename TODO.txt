@@ -1,0 +1,33 @@
+TODO
+----
+
+In no particular order
+
+- Rename 'compute' command to 'analyse'
+
+- Consider 7z instead of tar.bz2 for boards and library. But perhaps not for sources as they are extracted by the software,
+	and there is no 7z decompress library in Python's standard lib.
+
+- Paralel computing: use multiple processes to speed up import/analysis. Use `multiprocess` library,
+	as multithreading will not have any benefit thanks to the GIL
+
+- Speed up utils.prettyjson(), perhaps using only full text replace. Create argument to bypass prettifying and output
+	JSON (with **kwargs for extra JSON customization), to make it a general-purpose JSON dump in a new method
+	cals.Hooks._save_data(pretty=False, **kwargs) (or ._dump_data(), _dump_json(), etc)
+
+- 'display' should also chart individual games, currently done only in 'compute'.
+	May select randomly or fixed, or select specific games by ID
+	display --chart NUMGAMES [--random|--fixed], or display --chartgames ID...
+	NUMGAMES default to 10, fixed by default (every 3K games)
+
+- 'compute' and 'display' should have arguments to select hooks via command line: --movehistogram, --timeline, etc
+	By default computes/displays all hooks. Or perhaps --all for all hooks and error if none selected
+
+- Config file with parameters for each hook (mostly chart settings). Either sections at main config or its own config file.
+
+- Config settings for 'import', mostly filters (rules, handicap, rank, etc). Overrriden by command line
+
+- --test argument, uses same result folder (~/goat/results_test). --publish to generate EPS and SVG and zip Games and JSON data
+
+- Eliminate gomill.sgfgame dependency in GoGame: Read SGF file once on import, dump all headers to JSON.
+	Format: headers = dict(RU, FF, GM, PB, PW, ...), winner=<color> (to avoid parsing result), moves, boards, id, etc...
