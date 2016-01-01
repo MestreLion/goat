@@ -255,11 +255,11 @@ def gameids(maxgames=0):
         if maxgames and i >= maxgames:
             break
 
-def gamefile(id):
-    return os.path.join(g.LIBRARYDIR, id[:2], "%s.sgf" % id)
+def gamefile(gameid):
+    return os.path.join(g.LIBRARYDIR, id[:2], "%s.sgf" % gameid)
 
-def game(id, autosetup=True, autoplay=False):
-    return gogame.GoGame(gamefile(id), autosetup=autosetup, autoplay=autoplay)
+def game(gameid, autosetup=True, autoplay=False):
+    return gogame.GoGame(gamefile(gameid), autosetup=autosetup, autoplay=autoplay)
 
 def games(maxgames=0, autosetup=True, autoplay=False):
     for i, filename in enumerate(walk(), 1):
